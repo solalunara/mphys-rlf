@@ -132,8 +132,10 @@ def edm_sampling(
 
     # Move all tensors to gpu
     sigma_steps = sigma_steps.to(device)
-    context_batch = context_batch.to(device)
-    label_batch = label_batch.to(device)
+    if context_batch is not None:
+        context_batch = context_batch.to(device)
+    if label_batch is not None:
+        label_batch = label_batch.to(device)
 
     # Prepare sampling loop.
     imgs = []

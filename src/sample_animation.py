@@ -16,7 +16,7 @@ model_sampler = model.sampler.Sampler();
 samples = model_sampler.sample(
     "LOFAR_model",
     distribute_model=False,
-    n_samples=2,
+    n_samples=4,
 );
 
 square_size = int( np.ceil( np.sqrt( samples.shape[ 0 ] ) ) );
@@ -29,8 +29,8 @@ gs = fig.add_gridspec(square_size, square_size,
                       wspace=0.5, hspace=0.5);
 
 images = [];
-for i in range( samples.shape[ 0 ] ):
-    sample = samples[ i ];
+while ( i + j * square_size ) < samples.shape[ 0 ]:
+    sample = samples[ i + j * square_size ];
     ax = fig.add_subplot( gs[ i, j ] );
     ax.set_title( 'Sample ' + str( i + j * square_size ) );
     img = ax.imshow( sample[ 0, 0, :, : ] );

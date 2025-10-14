@@ -14,7 +14,8 @@ model_sampler = model.sampler.Sampler();
 samples = model_sampler.quick_sample(
     "LOFAR_model",
     distribute_model=False,
-    n_samples=4
+    n_samples=1,
+    image_size=80,
 );
 
 fig, ax = plotting.image_plots.plot_image_grid( samples[ 0 ] )

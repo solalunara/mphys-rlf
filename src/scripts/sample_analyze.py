@@ -65,13 +65,19 @@ for i in range( samples.shape[ 0 ] ):
         model_image_data = hdul_model[ 0 ].data;
 
         fig = plt.figure( figsize=(8, 8) );
-        gs = fig.add_gridspec(1, 1,
+        gs = fig.add_gridspec(1, 3,
                             left=0.05, right=0.95, bottom=0.1, top=0.95,
                             wspace=0.5, hspace=0.5);
-        ax = fig.add_subplot( gs[ 0, 0 ] );
-        ax.set_title( 'Model' );
-        img = ax.imshow( model_image_data[ 0, 0, ::-1, : ] );
-        img.set( animated=True );
-        ax.set_xlabel( "dimX" );
-        ax.set_ylabel( "dimY" );
+        ax1 = fig.add_subplot( gs[ 0, 0 ] );
+        ax2 = fig.add_subplot( gs[ 0, 1 ] );
+        ax3 = fig.add_subplot( gs[ 0, 2 ] );
+        ax1.set_title( 'Original' );
+        ax2.set_title( 'Reconstruction' );
+        ax3.set_title( 'Difference' );
+        img1 = ax1.imshow( samples[ 0, -1, 0, :, : ] );
+        img2 = ax2.imshow( model_image_data[ 0, 0, ::-1, : ] );
+        img3 = ax3.imshow( model_image_data[ 0, 0, ::-1, : ] - samples[ 0, -1, 0, :, : ] );
+        img1.set_clim( 0, 1 );
+        img2.set_clim( 0, 1 );
+        img3.set_clim( 0, 1 );
         plt.show();

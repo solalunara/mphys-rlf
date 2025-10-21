@@ -1,15 +1,15 @@
 import sys
 import os
+
+# Add the src directory to Python path so we can import modules
+src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, src_dir)
+
 import matplotlib.pyplot as plt;
 import model.sampler
 import plotting.image_plots
 import numpy as np;
 import matplotlib.animation as animation;
-
-
-# Add the src directory to Python path so we can import modules
-src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, src_dir)
 
 model_sampler = model.sampler.Sampler();
 

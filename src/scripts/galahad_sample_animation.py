@@ -13,10 +13,10 @@ import matplotlib.animation as animation;
 
 model_sampler = model.sampler.Sampler();
 
-samples = model_sampler.sample(
+samples = model_sampler.quick_sample(
     "LOFAR_model",
-    distribute_model=False,
-    n_samples=4,
+    distribute_model=True,
+    n_samples=64,
 );
 
 square_size = int( np.ceil( np.sqrt( samples.shape[ 0 ] ) ) );
@@ -54,3 +54,4 @@ def Animate( frame ):
     return images;
 
 ani = animation.FuncAnimation( fig, Animate, frames=samples.shape[ 1 ], interval=100, blit=True );
+ani.save( "galahad_test_anim.mp4", writer="ffmpeg", codec="mpeg4" )

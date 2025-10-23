@@ -13,19 +13,22 @@ class SimpleSampler:
         # Hook into the in-built sampler
         self.model_sampler = model.sampler.Sampler()
 
-    def run(self, file_name="sample.png", **kwargs):
+    def run(self, file_name="sample.png", save_file=False, **kwargs):
         # Generate a sample according to some parameters
         samples = self.model_sampler.quick_sample(**kwargs)
 
         # Save to a file
         fig, ax = plotting.image_plots.plot_image_grid(samples[0])
-        fig.savefig(file_name)
+        if save_file:
+            fig.savefig(file_name)
+
+        return samples
 
     def quick_run(self):
         # Generate a sample with default parameters
-        self.run(file_name="sample.png", model_name="LOFAR_model", distribute_model=False, n_samples=1, image_size=80)
+        return self.run(file_name="sample.png", model_name="LOFAR_model", distribute_model=False, n_samples=1, image_size=80)
 
 
 if __name__ == "__main__":
-    simple_sample = SimpleSample()
+    simple_sample = SimpleSampler()
     simple_sample.quick_run()

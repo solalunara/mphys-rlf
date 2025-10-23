@@ -16,27 +16,24 @@ model_sampler = model.sampler.Sampler();
 samples = model_sampler.quick_sample(
     "LOFAR_model",
     distribute_model=True,
-    n_samples=64,
+    n_samples=100,
 );
 
 square_size = int( np.ceil( np.sqrt( samples.shape[ 0 ] ) ) );
 
 i = 0;
 j = 0;
-fig = plt.figure( figsize=(8, 8) );
+fig = plt.figure( figsize=(40.96, 40.96) );
 gs = fig.add_gridspec(square_size, square_size,
-                      left=0.05, right=0.95, bottom=0.1, top=0.95,
-                      wspace=0.5, hspace=0.5);
+                      left=0.00, right=1.00, bottom=0.0, top=1.00,
+                      wspace=0.1, hspace=0.1);
 
 images = [];
 while ( i + j * square_size ) < samples.shape[ 0 ]:
     sample = samples[ i + j * square_size ];
     ax = fig.add_subplot( gs[ i, j ] );
-    ax.set_title( 'Sample ' + str( i + j * square_size ) );
     img = ax.imshow( sample[ 0, 0, :, : ] );
     img.set( animated=True );
-    ax.set_xlabel( "dimX" );
-    ax.set_ylabel( "dimY" );
     i += 1;
     if ( i == square_size ):
         i = 0;
@@ -53,5 +50,5 @@ def Animate( frame ):
         image.set_clim( np.min( sample[ frame, 0, :, : ] ), np.max( sample[ frame, 0, :, : ] ) );
     return images;
 
-ani = animation.FuncAnimation( fig, Animate, frames=samples.shape[ 1 ], interval=100, blit=True );
+ani = animation.FuncAnimation( fig, Animate, frames=samples.shape[ 1 ], interval=300, blit=True );
 ani.save( "galahad_test_anim.mp4", writer="ffmpeg", codec="mpeg4" )

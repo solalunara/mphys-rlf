@@ -3,8 +3,8 @@
 #SBATCH --job-name=ashley-luna-mphys-rlf
 #SBATCH --constraint=A100
 #SBATCH --time=10-23
-#SBATCH --ntasks-per-node=1
-#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
+#SBATCH --nodes=4
 #SBATCH --output=/share/nas2_3/lgreen/logs/out-slurm_%j.out
 
 pwd;

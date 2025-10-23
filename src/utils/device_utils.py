@@ -4,6 +4,9 @@ import nvidia_smi
 import torch
 import pandas as pd
 from torch.nn import DataParallel
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+
 
 
 def physical_gpu_df():
@@ -119,7 +122,7 @@ def distribute_model(model, n_devices=1, device_ids=None):
 
     else:
         model.to(torch.device("cuda", device_ids[0]))
-        model = DataParallel(model, device_ids=device_ids)
+        model = DDP(model, device_ids=device_ids)
     return model, device_ids
 
 

@@ -7,7 +7,7 @@ import numpy as np
 src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, src_dir)
 
-import model.sampler
+import simple_sample
 import plotting.image_plots
 
 
@@ -35,39 +35,46 @@ class A_50:
         for pixel in sorted_pixels:
             A_50 = np.append(A_50, pixel)
             cumulative_brightness += pixel[2]
+
+            # A50 is
             if cumulative_brightness > 0.5 * total_brightness:
                 break
 
         return A_50
 
-    def plot_a50_contour(self, image, A50):
+    def plot_A_50_contour(self, image, A_50):
         # Create a50 contour level
-        a50_level = [np.min(A_50)]
+        A_50_level = [np.min(A_50)]
 
         x_mesh, y_mesh = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-        contour = plt.contour(x_mesh, y_mesh, image, levels=a50_level, colors=['white'])
-        # Create meshgrid for contour plotting
-        x_mesh, y_mesh = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-        a50_plot = plt.contour(x_mesh, y_mesh, image, levels=a50_level, colors=['white'])
+        contour = plt.contour(x_mesh, y_mesh, image, levels=A_50_level, colors=['white'])
 
-        fig.savefig("a50contour.png")
-        print()
-        return contour
 
-# Run the sampler and produce an image
-model_sampler = model.sampler.Sampler()
-samples = model_sampler.quick_sample(
-    "LOFAR_model",
-    distribute_model=False,
-    n_samples=1,
-    image_size=80,
-    return_steps=False
-)
-fig, ax = plotting.image_plots.plot_image_grid( samples[ 0 ] )
+if __name__ == "__main__":
+    # Create an instance of A_50
+    A_50_finder = A_50()
 
-# Run the A50 sorting algorithm
-# Create a structured array to hold pixel positions and brightness
-A_50 = np.array([])
+    # Run the quick sample to get an image
+    simple_sampler = simple_sample.SimpleSampler()
+    samples = simple_sampler.run(
+        model_name="LOFAR_model",
+        distribute_model=False,
+        n_samples=1,
+        image_size=80,
+        return_steps=False  # this returns only the final image
+    )
 
-# Grab the image array from the samples
-image = samples[0][0]
+    # Grab the image array from the samples
+    final_image = samples[0][0]
+
+    # Plot the final image
+    fig, ax = plotting.image_plots.plot_image_grid(samples[0])
+
+    # Create the A_50 list
+    A_50 = A_50_finder.create_A_50_list(final_image)
+
+    # Plot the A_50 contour
+    A_50_finder.plot_A_50_contour(final_image, A_50)
+
+    # Save the contour plot
+    fig.savefig("a50contour.png")

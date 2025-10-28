@@ -33,7 +33,7 @@ for i in range( samples.shape[ 0 ] ):
     im_max = np.max( image );
     im_min = np.min( image );
     if im_min < 0:
-        raise ValueError( "Images not preprocessed to remove negative values" );
+        image = np.where( image > 0, image, 0 );
     image = ( image - im_min ) / ( im_max - im_min );
 
 

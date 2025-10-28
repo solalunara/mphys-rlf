@@ -18,12 +18,21 @@ import plotting.image_plots
 
 model_sampler = model.sampler.Sampler();
 
+
 samples = model_sampler.quick_sample(
     "LOFAR_model",
     distribute_model=True,
-    n_samples=10000,
+    n_samples=100,
     timesteps=25
 );
+while samples.shape[ 0 ] < 10000:
+    new_samples = model_sampler.quick_sample(
+        "LOFAR_model",
+        distribute_model=True,
+        n_samples=100,
+        timesteps=25
+    );
+    samples = np.concatenate( (samples, new_samples), axis=0 );
 
 for i in range( samples.shape[ 0 ] ):
     image = samples[ i, -1, 0, :, : ];
@@ -33,7 +42,7 @@ for i in range( samples.shape[ 0 ] ):
     im_max = np.max( image );
     im_min = np.min( image );
     if im_min < 0:
-        raise ValueError( "Images not preprocessed to remove negative values" );
+        image = np.where( image > 0, image, 0 );
     image = ( image - im_min ) / ( im_max - im_min );
 
 

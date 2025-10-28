@@ -12,11 +12,23 @@ import plotting.image_plots
 
 
 class A50Finder:
-    
+    """
+    A class to manually find the quantity A50, which is an area containing 50% of the total flux intensity of the source. It does this through two functions; create_A50_list, which creates and returns the list containing the data of all pixels in the A50, and plot_A50_contour, which plots the contour of the A50 region on top of the image.
+    """
+
     def __init__(self):
         pass
 
     def create_A50_list(self, image):
+        """
+        Creates a list of all pixels in the A50 region.
+
+        Args:
+            image (np.ndarray): The input image from which to extract the A50 region.
+
+        Returns:
+            np.ndarray: A structured array containing the data of all pixels in the A50 region.
+        """
         # Create a structured array to hold pixel positions and brightness
         A50_array = np.array([])
 
@@ -44,6 +56,16 @@ class A50Finder:
         return A50_array
 
     def plot_A50_contour(self, image, A50_array):
+        """
+        Plots a contour level highlighting the A50 area on a given image.
+
+        Args:
+            image (np.ndarray): The input image from which to extract the A50 region.
+            A50_array (np.ndarray): A structured array containing the data of all pixels in the A50 region.
+
+        Returns:
+            None
+        """
         # Create a50 contour level
         A50_level = [np.min(A50_array)]
 

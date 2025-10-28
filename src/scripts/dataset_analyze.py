@@ -5,23 +5,31 @@ from astropy.io import fits;
 from astropy.io.fits import ImageHDU;
 import numpy as np;
 import matplotlib.pyplot as plt;
+import math;
+from pathlib import Path, PurePath;
 
 # Add the src directory to Python path so we can import modules
 src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, src_dir)
 
+fits_images = Path( "fits_images/" );
+fits_images_dataset = fits_images / "dataset"
 
-img = bdsf.process_image( 
-    "fits_images/dataset/0-10000/image" + str(0) + ".fits", 
-    beam = (0.00166667, 0.00166667, 0.0),
-    thresh_isl = 5,
-    thresh_pix = 0.5,
-    mean_map = "const",
-    rms_map = True,
-    thresh = "hard",
-    frequency = 144e6 );
-img.show_fit();
-img.export_image( img_type='gaus_model', outfile="fits_images/reconstructed/dataset/model" + str(0) + ".fits", clobber=True );
+for fits_images_bin in fits_images_dataset.iterdir():
+    for fits_image in fits_images_bin.iterdir():
+        fits_image_rawstring = str( fits_image );
+        img = bdsf.process_image( 
+            fits_image_rawstring,
+            beam = (0.00166667, 0.00166667, 0.0),
+            thresh_isl = 5,
+            thresh_pix = 0.5,
+            mean_map = "const",
+            rms_map = True,
+            thresh = "hard",
+            frequency = 144e6 );
+        outfile = "pybdsf_catalogs/" + fits_image_rawstring[ len( str( fits_images ) ): ];
+        os.makedirs( os.path.dirname( outfile ), exist_ok=True );
+        img.write_catalog( outfile=outfile, format='fits', catalog_type='srl', clobber=True );
 
 
 with fits.open( "fits_images/reconstructed/dataset/model" + str(0) + ".fits" ) as hdul_model:

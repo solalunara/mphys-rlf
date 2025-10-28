@@ -18,12 +18,21 @@ import plotting.image_plots
 
 model_sampler = model.sampler.Sampler();
 
+
 samples = model_sampler.quick_sample(
     "LOFAR_model",
     distribute_model=True,
-    n_samples=10000,
+    n_samples=100,
     timesteps=25
 );
+while samples.shape[ 0 ] < 10000:
+    new_samples = model_sampler.quick_sample(
+        "LOFAR_model",
+        distribute_model=True,
+        n_samples=100,
+        timesteps=25
+    );
+    samples = np.concatenate( (samples, new_samples), axis=0 );
 
 for i in range( samples.shape[ 0 ] ):
     image = samples[ i, -1, 0, :, : ];

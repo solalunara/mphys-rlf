@@ -1,0 +1,29 @@
+# Some file types
+*.h5
+*.zip
+
+# IDE folders
+.vscode/
+.idea/
+
+# idk why this is here
+galaxy_data/
+jobs/
+sky_maps
+
+# Certain req folders too large for repo
+analysis_results/
+image_data/
+model_results/
+fits_images/
+pybdsf_catalogs/
+
+# Temporary files
+*.log
+*.out
+wandb/
+**/__pycache__/
+
+# Python virtual environments
+.venv/
+venv/

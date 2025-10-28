@@ -85,8 +85,6 @@ if __name__ == "__main__":
     samples = simple_sampler.run(
         model_name="LOFAR_model",
         distribute_model=False,
-        n_samples=1,
-        image_size=80,
         return_steps=False  # this returns only the final image
     )
 

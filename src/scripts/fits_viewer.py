@@ -2,6 +2,7 @@ from astropy.io import fits;
 import matplotlib.pyplot as plt;
 import numpy as np;
 from pathlib import Path;
+import math;
 
 class FitsViewer:
     """
@@ -9,51 +10,63 @@ class FitsViewer:
 
     Parameters
     ----------
-    file: Path | None = None
-        The fits file to read
+    *files: list[Path]
+        The fits file(s) to read
     """
 
-    def __init__( self, file: Path | None = None ):
-        if file is not None:
-            self.read_from_file( file );
+    def __init__( self, *files: list[Path] ):
+        if len( files ) == 0:
+            self.data = np.empty( (0,0,0,0) );
         else:
-            self.data = np.empty( (0, 0) );
+            self.read_from_files( *files );
 
-    def read_from_file( self, file: Path ):
+    def read_from_files( self, *files: list[Path] ):
         """
         Read fits file into data
 
         Parameters
         ----------
-        file : Path
+        *files : list[Path]
             The fits file to read the data from. The data should be stored in the PrimaryHDU, ideally
             in (n,n) shape but up to (1,1,...1,n,n) shape
         """
-        with fits.open( str( file ) ) as hdul_model:
-            self.data = hdul_model[ 0 ].data;
-            #FITS files from gaus_model in pybdsf are of shape (1,1,n,n), so cut out all one shapes
-            while self.data.shape[ 0 ] == 1:
-                self.data = self.data[ 0 ];
+        self.data = None;
+        for file in files:
+            with fits.open( str( file ) ) as hdul_model:
+                data = hdul_model[ 0 ].data;
 
-    def show_image( self, 
-                    title: str = 'Data', 
-                    resolution: int = 80, 
-                    left = 0.05,
-                    right = 0.95,
-                    bottom = 0.1,
-                    top = 0.95,
-                    wspace = 0.5,
-                    hspace = 0.5,
-                     ):
+            #FITS files from gaus_model in pybdsf are of shape (1,1,n,n), so cut out all one shapes
+            while data.shape[ 0 ] == 1:
+                data = data[ 0 ];
+            data = data[ np.newaxis, :, : ];
+            if self.data is None:
+                self.data = data;
+            else:
+                self.data = np.concatenate( (self.data, data), axis=0 );
+
+
+    def show_image_grid( self, 
+                         *titles: list[str],
+                         resolution: int = 1000,
+                         num_rows: int = 1,
+                         left = 0.05,
+                         right = 0.95,
+                         bottom = 0.1,
+                         top = 0.95,
+                         wspace = 0.5,
+                         hspace = 0.5,
+                          ):
         """
         Show a plot image for the data, and return this object for syntax sugar
 
         Parameters
         ----------
-        title : str = 'Data'
-            Plot title
-        resolution : int = 80
+        resolution : int = 1000
             Size of the full figure (independent of actual pixel size of the image)
+        num_rows : int = 1
+            Number of rows to display the fits images using
+        *titles : list[str]
+            Plot titles of the same length as files
 
         Gridspec Parameters
         -------------------
@@ -64,57 +77,32 @@ class FitsViewer:
         wspace = 0.5,
         hspace = 0.5
         """
-        if self.data.shape == (0, 0):
+        if self.data.shape == (0, 0, 0, 0):
             raise RuntimeError( "Data has not been initialized. Please initialize data either with the constructor or read_from_file before calling show_image" );
+        if len( titles ) != self.data.shape[ 0 ]:
+            raise RuntimeError( "Length of titles and length of data mismatch!" );
 
-        fig = plt.figure( figsize=(int(resolution/10), int(resolution/10)) );
-        gs = fig.add_gridspec(1, 1,
-                            left=left, right=right, bottom=bottom, top=top,
-                            wspace=wspace, hspace=hspace);
-        ax1 = fig.add_subplot( gs[ 0, 0 ] );
-        ax1.set_title( title );
-        img1 = ax1.imshow( self.data );
-        img1.set_clim( 0, 1 );
+        fig = plt.figure( figsize=(int(resolution/100), int(resolution/100)) );
+        num_cols = int( math.ceil( len( titles ) / num_rows ) );
+        gs = fig.add_gridspec( num_rows, num_cols,
+                               left=left, right=right, bottom=bottom, top=top,
+                               wspace=wspace, hspace=hspace );
+        axes = [];
+        for i in range( len( titles ) ):
+            col = int( np.round( i / num_rows ) );
+            row = i % num_rows;
+            axes.append( fig.add_subplot( gs[ row, col ] ) );
+            axes[ -1 ].set_title( titles[ i ] );
+            img = axes[ -1 ].imshow( self.data[ i ] );
+            img.set_clim( 0, 1 );
         plt.show();
         return self;
 
-    def read_and_show( self, 
-                       file: Path, 
-                       title: str = 'Data',
-                       resolution: int = 80,
-                       left: float = 0.05,
-                       right: float = 0.95,
-                       bottom: float = 0.1,
-                       top: float = 0.95,
-                       wspace: float = 0.5,
-                       hspace: float = 0.5,
-                        ):
-        """
-        Utility function to combine read_from_file and show_image
-
-        Parameters
-        ----------
-        file : Path
-            The fits file to read the data from. The data should be stored in the PrimaryHDU, ideally
-            in (n,n) shape but up to (1,1,...1,n,n) shape
-        title : str = 'Data'
-            Plot title
-        resolution : int = 80
-            Size of the full figure (independent of actual pixel size of the image)
-
-        Gridspec Parameters
-        -------------------
-        left = 0.05,
-        right = 0.95,
-        bottom = 0.1,
-        top = 0.95,
-        wspace = 0.5,
-        hspace = 0.5
-        """
-        self.read_from_file( file );
-        self.show_image( title, resolution, left, right, bottom, top, wspace, hspace );
-
-
 if __name__ == "__main__":
-    viewer = FitsViewer( "fits_images/exported/dataset/gaus_model/50000-60000/image50080.fits" ).show_image();
+    viewer = FitsViewer( "fits_images/dataset/50000-60000/image50080.fits",
+                         "fits_images/dataset/50000-60000/image50081.fits",
+                         "fits_images/dataset/50000-60000/image50082.fits",
+                         ).show_image_grid( "image 50080",
+                                            "image 50081",
+                                            "image 50082" );
 

@@ -16,7 +16,7 @@ import scripts.image_analyzer;
 import scripts.fits_viewer;
 
 dataset_analyzer = scripts.image_analyzer.ImageAnalyzer( "dataset" );
-dataset_analyzer.AnalyzeAllFITSInInput();
+dataset_analyzer.AnalyzeFITSInPath( "fits_images/dataset/50000-60000/image50080.fits" );
 
 fits_viewer = scripts.fits_viewer.FitsViewer();
 fits_viewer.read_from_files( "fits_images/dataset/50000-60000/image50080.fits",

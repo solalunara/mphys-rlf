@@ -101,15 +101,18 @@ class ImageAnalyzer:
         """
         self.AnalyzeFITSInPath( self.fits_input_dir / self.subdir );
     
-    def AnalyzeFITSInPath( self, path: Path ):
+    def AnalyzeFITSInPath( self, path: Path | str ):
         """
         Recursive function to analyze all files under a given path
 
         Parameters
         ----------
-        path : str
+        path : Path | str
             the path to analyze, either to a folder which will be analyzed recursively or to a file
         """
+        if path is not Path:
+            path = Path( path );
+
         if path.is_dir():
             logger.debug( "Entering directory %s", str( path ) );
             for sub_path in path.iterdir():

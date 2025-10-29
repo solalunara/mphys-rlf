@@ -15,9 +15,7 @@ class FitsViewer:
     """
 
     def __init__( self, *files: list[Path] ):
-        if len( files ) == 0:
-            self.data = np.empty( (0,0,0,0) );
-        else:
+        if len( files ) != 0:
             self.read_from_files( *files );
 
     def read_from_files( self, *files: list[Path] ):

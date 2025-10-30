@@ -77,11 +77,21 @@ def CalculateHDULFlux( hdul: astropy.io.fits.hdu.HDUList ):
 
 
 if __name__ == "__main__":
-    catalog_analyzer = CatalogAnalyzer( Path( "pybdsf_catalogs/dataset/0-10000" ) );
-    fluxes = np.array( catalog_analyzer.FluxCounter() );
-    n, bins, patches = plt.hist( fluxes[ :, 0 ], density=True, log=True, histtype='step', bins=10 );
+    catalog_analyzer = CatalogAnalyzer( Path( "pybdsf_catalogs/dataset/" ) );
+    fluxes = np.array( catalog_analyzer.FluxCounter() ); #both fluxes and flux errors, (N,2)
+
+    #Use numpy to get a histogram array of the values
+    #and matplotlib to plto a log graph from the raw data
+    BINCOUNT = 10;
+    hist, _ = np.histogram( fluxes[ :, 0 ], bins=BINCOUNT );
+    log_hist, bins, _ = plt.hist( fluxes[ :, 0 ], density=True, log=True, histtype='step', bins=BINCOUNT );
+
+    #Put errorbars on the centre of each bin using the poisson confidence interval
     bin_width = bins[ 1 ] - bins[ 0 ];
-    bin_centres = bins[ :-1 ] + bin_width/2.0
-    conf_interval = astropy.stats.poisson_conf_interval( n, sigma=1.0 )
-    plt.errorbar( bin_centres, n, conf_interval[ 1 ] - conf_interval[ 0 ], fmt='.' )
+    bin_centres = bins[ :-1 ] + bin_width/2.0;
+    conf_interval = astropy.stats.poisson_conf_interval( hist, sigma=1.0 );
+    conf_interval = np.where( conf_interval > 0, conf_interval, 1e-10 );
+    yerr = np.log10( conf_interval[ 1 ] / conf_interval[ 0 ] ) / np.sum( hist ); #acounting for density weighting
+
+    plt.errorbar( bin_centres, log_hist, yerr, fmt='.' );
     plt.savefig( "hist.png" );

@@ -2,6 +2,7 @@ import os;
 import sys;
 from astropy.io import fits;
 import astropy.io;
+import astropy.stats;
 import astropy.io.fits
 import numpy as np;
 from pathlib import Path;
@@ -76,7 +77,11 @@ def CalculateHDULFlux( hdul: astropy.io.fits.hdu.HDUList ):
 
 
 if __name__ == "__main__":
-    catalog_analyzer = CatalogAnalyzer( Path( "pybdsf_catalogs/dataset" ) );
+    catalog_analyzer = CatalogAnalyzer( Path( "pybdsf_catalogs/dataset/0-10000" ) );
     fluxes = np.array( catalog_analyzer.FluxCounter() );
-    plt.hist( fluxes[ :, 0 ], density=True, log=True );
+    n, bins, patches = plt.hist( fluxes[ :, 0 ], density=True, log=True, histtype='step', bins=10 );
+    bin_width = bins[ 1 ] - bins[ 0 ];
+    bin_centres = bins[ :-1 ] + bin_width/2.0
+    conf_interval = astropy.stats.poisson_conf_interval( n, sigma=1.0 )
+    plt.errorbar( bin_centres, n, conf_interval[ 1 ] - conf_interval[ 0 ], fmt='.' )
     plt.savefig( "hist.png" );

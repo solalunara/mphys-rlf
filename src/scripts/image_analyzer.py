@@ -73,9 +73,9 @@ class ImageAnalyzer:
 
     def __init__( self, 
                   subdir: str | PurePath, 
+                  fits_input_dir: str | Path = "fits_images/",
                   catalog_dir: str | Path = "pybdsf_catalogs/",
                   img_dir: str | Path = "fits_images/exported/",
-                  fits_input_dir: str | Path = "fits_images/",
                   process_args: dict = LOFAR_process_arg_defaults,
                   catalog_args: dict | None = dict(
                     format='fits',
@@ -86,9 +86,11 @@ class ImageAnalyzer:
                       dict( img_type='gaus_model', clobber=True )
                   ] ):
 
-        self.process_args = process_args;
-        self.catalog_args = catalog_args;
-        self.export_img_args = export_img_args;
+        #arrays and dicts need to be copied from templates for memory safety
+        self.process_args = process_args.copy();
+        self.catalog_args = catalog_args.copy();
+        self.export_img_args = [ d.copy() for d in export_img_args ];
+
         self.catalog_dir = catalog_dir if catalog_dir is Path else Path( catalog_dir );
         self.img_dir = img_dir if img_dir is Path else Path( img_dir );
         self.fits_input_dir = fits_input_dir if fits_input_dir is Path else Path( fits_input_dir );
@@ -122,18 +124,17 @@ class ImageAnalyzer:
                 #First see if we have any work to do
                 postfix = path.parts[ (path.parts.index( str( self.subdir ) ) + 1 ): ];
                 write_catalog = self.catalog_args is not None;
-                export_images = np.array( [ True for _ in self.export_img_args ] )
                 if write_catalog:
                     catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
                     if catalog_outfile.exists():
                         write_catalog = False;
-                for i in range( len( export_images ) ):
-                    image_outfile = self.img_dir / self.subdir / PurePath( self.export_img_args[ i ][ "img_type" ] ).joinpath( *postfix );
-                    if image_outfile.exists():
-                        export_images[ i ] = False;
-                args_for_images_to_export = np.select( export_images, self.export_img_args );
-
-                if not write_catalog and not args_for_images_to_export.any():
+                local_export_img_args = [];
+                for single_image_args in self.export_img_args:
+                    image_outfile = self.img_dir / self.subdir / PurePath( single_image_args[ "img_type" ] ).joinpath( *postfix );
+                    if not image_outfile.exists():
+                        local_export_img_args.append( single_image_args.copy() );
+                
+                if not write_catalog and len( local_export_img_args ) == 0:
                     print( f"Skipping {path}, no work to do" );
                     return; #nothing to do
                 print( f"Processing {path}:" );
@@ -144,11 +145,10 @@ class ImageAnalyzer:
                     str( path ),
                     **self.process_args
                 );
-                if args_for_images_to_export.any():
-                    for single_image_args in args_for_images_to_export:
-                        image_outfile = self.img_dir / self.subdir / PurePath( single_image_args[ "img_type" ] ).joinpath( *postfix );
-                        image_outfile.parent.mkdir( parents=True, exist_ok=True );
-                        img.export_image( outfile=str( image_outfile ), **single_image_args );
+                for single_image_args in local_export_img_args:
+                    image_outfile = self.img_dir / self.subdir / PurePath( single_image_args[ "img_type" ] ).joinpath( *postfix );
+                    image_outfile.parent.mkdir( parents=True, exist_ok=True );
+                    img.export_image( outfile=str( image_outfile ), **single_image_args );
                 if write_catalog and self.catalog_args is not None:
                     catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
                     catalog_outfile.parent.mkdir( parents=True, exist_ok=True );

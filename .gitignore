@@ -27,3 +27,4 @@ wandb/
 # Python virtual environments
 .venv/
 venv/
+hist.png

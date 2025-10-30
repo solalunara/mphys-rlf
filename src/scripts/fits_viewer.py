@@ -28,23 +28,20 @@ class FitsViewer:
             The fits file to read the data from. The data should be stored in the PrimaryHDU, ideally
             in (n,n) shape but up to (1,1,...1,n,n) shape
         """
-        self.data = None;
+        self.data = [];
         for file in files:
-            with fits.open( str( file ) ) as hdul_model:
-                data = hdul_model[ 0 ].data;
+            with fits.open( str( file ) ) as hdul:
+                data = [ hdul[ i ].data for i in range( len( hdul ) ) ];
 
             #FITS files from gaus_model in pybdsf are of shape (1,1,n,n), so cut out all one shapes
-            while data.shape[ 0 ] == 1:
-                data = data[ 0 ];
-            data = data[ np.newaxis, :, : ];
-            if self.data is None:
-                self.data = data;
-            else:
-                self.data = np.concatenate( (self.data, data), axis=0 );
+            if len( data ) == 1:
+                while data[ 0 ].shape[ 0 ] == 1:
+                    data[ 0 ] = data[ 0 ][ 0 ];
+            self.data.append( data );
 
 
     def show_image_grid( self, 
-                         *titles: list[str],
+                         *titles: list[str|None],
                          resolution: int = 1000,
                          num_rows: int = 1,
                          left = 0.05,
@@ -63,8 +60,8 @@ class FitsViewer:
             Size of the full figure (independent of actual pixel size of the image)
         num_rows : int = 1
             Number of rows to display the fits images using
-        *titles : list[str]
-            Plot titles of the same length as files
+        *titles : list[str|None]
+            Plot titles list of the same length as files, where None indicates to not set a title for the image
 
         Gridspec Parameters
         -------------------
@@ -75,9 +72,9 @@ class FitsViewer:
         wspace = 0.5,
         hspace = 0.5
         """
-        if self.data.shape == (0, 0, 0, 0):
+        if self.data is None:
             raise RuntimeError( "Data has not been initialized. Please initialize data either with the constructor or read_from_file before calling show_image" );
-        if len( titles ) != self.data.shape[ 0 ]:
+        if len( titles ) != len( self.data ):
             raise RuntimeError( "Length of titles and length of data mismatch!" );
 
         fig = plt.figure( figsize=(int(resolution/100), int(resolution/100)) );
@@ -87,11 +84,14 @@ class FitsViewer:
                                wspace=wspace, hspace=hspace );
         axes = [];
         for i in range( len( titles ) ):
+            if len( self.data[ i ] ) != 1:
+                raise RuntimeError( "All images must be stored as one image per file in the PrimaryHDU for compatibility with PyBDSF" );
             col = int( np.round( i / num_rows ) );
             row = i % num_rows;
             axes.append( fig.add_subplot( gs[ row, col ] ) );
-            axes[ -1 ].set_title( titles[ i ] );
-            img = axes[ -1 ].imshow( self.data[ i ] );
+            if titles[ i ] is not None:
+                axes[ -1 ].set_title( titles[ i ] );
+            img = axes[ -1 ].imshow( self.data[ i ][ 0 ] );
             img.set_clim( 0, 1 );
         plt.show();
         return self;

@@ -1,0 +1,78 @@
+import os;
+import sys;
+from astropy.io import fits;
+import astropy.io;
+import astropy.io.fits
+import numpy as np;
+from pathlib import Path;
+import matplotlib.pyplot as plt;
+
+
+# Add the src directory to Python path so we can import modules
+src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, src_dir)
+
+import scripts.fits_viewer;
+
+class CatalogAnalyzer:
+    def __init__( self, path: Path | str ):
+        if path is not Path:
+            path = Path( path );
+        self.path = path;
+    
+    def ForEach( self, function, path: Path | str | None = None ):
+        """
+        A method to perform a generic function on all hdul's within a directory given by path, or
+        to read path as a file and perform the generic function on its hdul, assuming it is a fits file.
+
+        Parameters
+        ----------
+        function : callable
+            The function which will be called on each hdul in path recursively
+        path : Path | None
+            The path to the catalog root, or any subdirectory or catalog. If none defaults to catalog root dir.
+
+        Returns
+        -------
+        a list of the return values of the function on each catalog in path, or the return value acted on a particular catalog
+        """
+        if path is None:
+            path = self.path;
+        if path is not Path:
+            path = Path( path );
+
+        if path.is_dir():
+            return_values = [];
+            for sub_path in path.iterdir():
+                sub_return_values = self.ForEach( function, sub_path );
+                if isinstance( sub_return_values, list ):
+                    return_values = return_values + sub_return_values;
+                else:
+                    return_values.append( sub_return_values );
+            return return_values;
+            
+        else:
+            if path.suffix == ".fits":
+                with fits.open( str( path ) ) as hdul:
+                    return_value = function( hdul );
+                return return_value;
+            else: return;
+
+    def FluxCounter( self ):
+        return self.ForEach( CalculateHDULFlux );
+
+def CalculateHDULFlux( hdul: astropy.io.fits.hdu.HDUList ):
+    islands = hdul[ 1 ].data;
+    flux_total = 0;
+    e_flux_total = 0;
+    for island in islands:
+        flux_total += island[ 6 ];
+        e_flux_total += np.sqrt( e_flux_total**2 + island[ 7 ]**2 );
+    return flux_total, e_flux_total;
+
+
+if __name__ == "__main__":
+    catalog_analyzer = CatalogAnalyzer( Path( "pybdsf_catalogs/dataset" ) );
+    fluxes = np.array( catalog_analyzer.FluxCounter() );
+    plt.hist( fluxes[ :, 0 ], density=True, log=True );
+    plt.show();

@@ -119,17 +119,37 @@ class ImageAnalyzer:
                 self.AnalyzeFITSInPath( sub_path );
         else:
             if path.suffix == ".fits":
+                #First see if we have any work to do
+                postfix = path.parts[ (path.parts.index( str( self.subdir ) ) + 1 ): ];
+                write_catalog = self.catalog_args is not None;
+                export_images = np.array( [ True for _ in self.export_img_args ] )
+                if write_catalog:
+                    catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
+                    if catalog_outfile.exists():
+                        write_catalog = False;
+                for i in range( len( export_images ) ):
+                    image_outfile = self.img_dir / self.subdir / PurePath( self.export_img_args[ i ][ "img_type" ] ).joinpath( *postfix );
+                    if image_outfile.exists():
+                        export_images[ i ] = False;
+                args_for_images_to_export = np.select( export_images, self.export_img_args );
+
+                if not write_catalog and not args_for_images_to_export.any():
+                    print( f"Skipping {path}, no work to do" );
+                    return; #nothing to do
+                print( f"Processing {path}:" );
+
+                #Something to do, process the image
+                #note - single star for array expansion, double star for dict expansion
                 img: bdsf.image.Image = bdsf.process_image(
                     str( path ),
                     **self.process_args
                 );
-                #note - single star for array expansion, double star for dict expansion
-                postfix = path.parts[ (path.parts.index( str( self.subdir ) ) + 1 ): ];
-                for single_image_args in self.export_img_args:
-                    image_outfile = self.img_dir / self.subdir / PurePath( single_image_args[ "img_type" ] ).joinpath( *postfix );
-                    image_outfile.parent.mkdir( parents=True, exist_ok=True );
-                    img.export_image( outfile=str( image_outfile ), **single_image_args );
-                if self.catalog_args is not None:
+                if args_for_images_to_export.any():
+                    for single_image_args in args_for_images_to_export:
+                        image_outfile = self.img_dir / self.subdir / PurePath( single_image_args[ "img_type" ] ).joinpath( *postfix );
+                        image_outfile.parent.mkdir( parents=True, exist_ok=True );
+                        img.export_image( outfile=str( image_outfile ), **single_image_args );
+                if write_catalog and self.catalog_args is not None:
                     catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
                     catalog_outfile.parent.mkdir( parents=True, exist_ok=True );
                     img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args );

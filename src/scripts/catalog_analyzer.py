@@ -19,6 +19,7 @@ class CatalogAnalyzer:
         if path is not Path:
             path = Path( path );
         self.path = path;
+        self.counter = 0;
     
     def ForEach( self, function, path: Path | str | None = None ):
         """
@@ -38,6 +39,7 @@ class CatalogAnalyzer:
         """
         if path is None:
             path = self.path;
+            self.counter = 0;
         if path is not Path:
             path = Path( path );
 
@@ -55,6 +57,8 @@ class CatalogAnalyzer:
             if path.suffix == ".fits":
                 with fits.open( str( path ) ) as hdul:
                     return_value = function( hdul );
+                print( f"image {self.counter}: {path}")
+                self.counter += 1;
                 return return_value;
             else: return;
 
@@ -75,4 +79,4 @@ if __name__ == "__main__":
     catalog_analyzer = CatalogAnalyzer( Path( "pybdsf_catalogs/dataset" ) );
     fluxes = np.array( catalog_analyzer.FluxCounter() );
     plt.hist( fluxes[ :, 0 ], density=True, log=True );
-    plt.show();
+    plt.savefig( "hist.png" );

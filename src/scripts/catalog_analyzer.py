@@ -14,6 +14,8 @@ src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, src_dir)
 
 import scripts.fits_viewer;
+from scripts.dataset_h5_to_fits import H5ToFitsConverter;
+from scripts.image_analyzer import ImageAnalyzer;
 
 class CatalogAnalyzer:
     def __init__( self, path: Path | str ):
@@ -77,6 +79,15 @@ def CalculateHDULFlux( hdul: astropy.io.fits.hdu.HDUList ):
 
 
 if __name__ == "__main__":
+
+    #Create and analyze FITS images from the dataset if they don't exist
+    if not Path( "fits_images/dataset" ).exists():
+        converter = H5ToFitsConverter( "image_data/LOFAR/LOFAR_Dataset.h5", "fits_images/dataset" );
+        converter.ConvertLOFAR( 10000, 1000, 100 );
+    if not Path( "pybdsf_catalogs/dataset" ):
+        dataset_analyzer = ImageAnalyzer( "dataset" );
+        dataset_analyzer.AnalyzeAllFITSInInput();
+
     catalog_analyzer = CatalogAnalyzer( Path( "pybdsf_catalogs/dataset/" ) );
     fluxes = np.array( catalog_analyzer.FluxCounter() ); #both fluxes and flux errors, (N,2)
 

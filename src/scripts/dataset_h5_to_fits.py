@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt;
 import h5py;
 import math;
 from pathlib import Path, PurePath;
+import shutil;
 
 # Add the src directory to Python path so we can import modules
 src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -94,5 +95,12 @@ class H5ToFitsConverter:
                 hdul.writeto( filename, overwrite=True );
 
 if __name__ == "__main__":
+
+    fits_dataset_path = Path( "fits_images/dataset" );
+
+    #Recreate the dataset if it exists to make sure it has the right bin configuration
+    if fits_dataset_path.exists():
+        shutil.rmtree( fits_dataset_path );
+
     converter = H5ToFitsConverter( "image_data/LOFAR/LOFAR_Dataset.h5", "fits_images/dataset" );
     converter.ConvertLOFAR( 10000, 1000, 100 );

@@ -8,6 +8,8 @@ import numpy as np;
 import matplotlib.pyplot as plt;
 import math;
 from pathlib import Path, PurePath;
+import multiprocessing;
+import multiprocessing.pool;
 
 # Add the src directory to Python path so we can import modules
 src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +18,28 @@ sys.path.insert(0, src_dir)
 import utils.logging;
 
 logger = utils.logging.get_logger(__name__);
+
+#Neccesary pool extention - PyBDSF uses daemon processes but only sometimes, and we want to batch the files themselves
+#Courtesy of https://stackoverflow.com/questions/52948447/error-group-argument-must-be-none-for-now-in-multiprocessing-pool
+class NonDaemonPool(multiprocessing.pool.Pool):
+    def Process(self, *args, **kwds):
+        proc = super(NonDaemonPool, self).Process(*args, **kwds)
+
+        class NonDaemonProcess(proc.__class__):
+            """Monkey-patch process to ensure it is never daemonized"""
+            @property
+            def daemon(self):
+                return False
+
+            @daemon.setter
+            def daemon(self, val):
+                pass
+
+        proc.__class__ = NonDaemonProcess
+        return proc
+
+
+
 
 class ImageAnalyzer:
     """
@@ -100,8 +124,16 @@ class ImageAnalyzer:
     def AnalyzeAllFITSInInput( self ):
         """
         Recursively analyze all of "[fits_input_dir]/[subdir]/\*\*.fits"
+
+        Spawns in one process for each top-level bin in [subdir] for parallel processing
         """
-        self.AnalyzeFITSInPath( self.fits_input_dir / self.subdir );
+        input_subdir = self.fits_input_dir / self.subdir;
+        subdirectories = [];
+        for subdirectory in input_subdir.iterdir():
+            subdirectories.append( subdirectory );
+        
+        p = NonDaemonPool( processes=len( subdirectories ) );
+        p.map( self.AnalyzeFITSInPath, subdirectories );
     
     def AnalyzeFITSInPath( self, path: Path | str ):
         """

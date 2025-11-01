@@ -53,7 +53,7 @@ class RecursiveFileAnalyzer:
         if path.is_dir():
             return_values = [];
             for sub_path in path.iterdir():
-                sub_return_values = self.ForEach( function, sub_path );
+                sub_return_values = self.ForEach( function, ext, sub_path );
 
                 #concatenate result lists so we end up with a big 1d array as a result
                 #and toss None values (which we get if the extension doesn't match, or the fn itself returns None)
@@ -68,7 +68,7 @@ class RecursiveFileAnalyzer:
             if ( path.suffix == f".{ext}" ) or ( ext is None ):
                 with open( str( path ), "r" ) as file:
                     return_value = function( file.read() );
-                self.logger.info( f"image log {self.counter}: {path}" );
+                self.logger.debug( f"image log {self.counter}: {path}" );
                 self.counter += 1;
                 return return_value;
             else: return;

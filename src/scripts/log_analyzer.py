@@ -94,13 +94,13 @@ if __name__ == "__main__":
     #Use numpy to get a histogram array of the values
     #and matplotlib to plot a log graph from the raw data
     hist = HistogramErrorDrawer();
-    BINCOUNT = 30;
-    hist.Draw( dataset_data[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="dataset", color="b", density=True, log=True );
-    hist.Draw( generated_data[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="generated", color="g", density=True, log=True );
-    hist.Draw( dataset_data[ :, 1 ], ax=ax_mean, bins=BINCOUNT, range=(0,150), label="dataset", color="b", density=True, log=True );
-    hist.Draw( generated_data[ :, 1 ], ax=ax_mean, bins=BINCOUNT, range=(0,150), label="generated", color="g", density=True, log=True );
-    hist.Draw( dataset_data[ :, 2 ], ax=ax_rms, bins=BINCOUNT, range=(0,200), label="dataset", color="b", density=True, log=True );
-    hist.Draw( generated_data[ :, 2 ], ax=ax_rms, bins=BINCOUNT, range=(0,200), label="generated", color="g", density=True, log=True );
+    BINCOUNT = 100;
+    hist.Draw( dataset_data[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,50), label="dataset", color="b", density=True, log=True );
+    hist.Draw( generated_data[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,50), label="generated", color="g", density=True, log=True );
+    hist.Draw( dataset_data[ :, 1 ], ax=ax_mean, bins=BINCOUNT, range=(0,300), label="dataset", color="b", density=True, log=True );
+    hist.Draw( generated_data[ :, 1 ], ax=ax_mean, bins=BINCOUNT, range=(0,300), label="generated", color="g", density=True, log=True );
+    hist.Draw( dataset_data[ :, 2 ], ax=ax_rms, bins=BINCOUNT, range=(0,500), label="dataset", color="b", density=True, log=True );
+    hist.Draw( generated_data[ :, 2 ], ax=ax_rms, bins=BINCOUNT, range=(0,500), label="generated", color="g", density=True, log=True );
 
     ax_flux.legend();
     ax_mean.legend();

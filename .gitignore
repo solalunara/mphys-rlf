@@ -1,6 +1,7 @@
 # Some file types
 *.h5
 *.zip
+*.png
 
 # IDE folders
 .vscode/
@@ -23,8 +24,8 @@ pybdsf_catalogs/
 *.out
 wandb/
 **/__pycache__/
+*test.sh
 
 # Python virtual environments
 .venv/
 venv/
-*.png

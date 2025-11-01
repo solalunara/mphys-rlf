@@ -18,18 +18,18 @@ from scripts.dataset_h5_to_fits import H5ToFitsConverter;
 from scripts.image_analyzer import ImageAnalyzer;
 from scripts.recursive_file_analyzer import RecursiveFileAnalyzer;
 
-class CatalogAnalyzer( RecursiveFileAnalyzer ):
+class LogAnalyzer( RecursiveFileAnalyzer ):
     def FluxCounter( self ):
-        return self.ForEach( CatalogAnalyzer.CalculateHDULFlux, "fits" );
+        return self.ForEach( LogAnalyzer.CalculateFileFlux, "log" );
 
-    def CalculateHDULFlux( hdul: astropy.io.fits.hdu.HDUList ):
-        islands = hdul[ 1 ].data;
-        flux_total = 0;
-        e_flux_total = 0;
-        for island in islands:
-            flux_total += island[ 6 ];
-            e_flux_total += np.sqrt( e_flux_total**2 + island[ 7 ]**2 );
-        return flux_total, e_flux_total;
+    def CalculateFileFlux( filedata: str ):
+        line = "Flux from sum of (non-blank) pixels ..... : ";
+        index = filedata.index( line );
+        index += len( line );
+        endindex = filedata.index( "Jy", index ) - 1;
+        flux = float( filedata[ index:endindex ] );
+        return flux;
+
 
 
 if __name__ == "__main__":
@@ -42,18 +42,18 @@ if __name__ == "__main__":
         dataset_analyzer = ImageAnalyzer( "dataset" );
         dataset_analyzer.AnalyzeAllFITSInInput();
 
-    dataset_catalog_analyzer = CatalogAnalyzer( "pybdsf_catalogs/dataset/" );
-    generated_catalog_analyzer = CatalogAnalyzer( "pybdsf_catalogs/generated/" );
-    dataset_fluxes = np.array( dataset_catalog_analyzer.FluxCounter() ); #both fluxes and flux errors, (N,2)
-    generated_fluxes = np.array( generated_catalog_analyzer.FluxCounter() ); #both fluxes and flux errors, (N,2)
+    dataset_catalog_analyzer = LogAnalyzer( "fits_images/dataset/" );
+    generated_catalog_analyzer = LogAnalyzer( "fits_images/generated/" );
+    dataset_fluxes = np.array( dataset_catalog_analyzer.FluxCounter() );
+    generated_fluxes = np.array( generated_catalog_analyzer.FluxCounter() );
 
     #Use numpy to get a histogram array of the values
     #and matplotlib to plto a log graph from the raw data
     BINCOUNT = 10;
-    d_hist, _ = np.histogram( dataset_fluxes[ :, 0 ], bins=BINCOUNT, range=(0,30) );
-    g_hist, _ = np.histogram( generated_fluxes[ :, 0 ], bins=BINCOUNT, range=(0,30) );
-    d_log_hist, bins, _ = plt.hist( dataset_fluxes[ :, 0 ], density=True, log=True, histtype='step', bins=BINCOUNT, label="dataset", color="b", range=(0,30) );
-    g_log_hist, bins, _ = plt.hist( generated_fluxes[ :, 0 ], density=True, log=True, histtype='step', bins=BINCOUNT, label="generated", color="g", range=(0,30) );
+    d_hist, _ = np.histogram( dataset_fluxes, bins=BINCOUNT, range=(0,30) );
+    g_hist, _ = np.histogram( generated_fluxes, bins=BINCOUNT, range=(0,30) );
+    d_log_hist, bins, _ = plt.hist( dataset_fluxes, density=True, log=True, histtype='step', bins=BINCOUNT, label="dataset", color="b", range=(0,30) );
+    g_log_hist, bins, _ = plt.hist( generated_fluxes, density=True, log=True, histtype='step', bins=BINCOUNT, label="generated", color="g", range=(0,30) );
 
     #Put errorbars on the centre of each bin using the poisson confidence interval
     bin_width = bins[ 1 ] - bins[ 0 ];

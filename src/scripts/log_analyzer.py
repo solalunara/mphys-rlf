@@ -17,50 +17,53 @@ sys.path.insert(0, src_dir)
 import scripts.fits_viewer;
 from scripts.dataset_h5_to_fits import H5ToFitsConverter;
 from scripts.image_analyzer import ImageAnalyzer;
-from scripts.recursive_file_analyzer import RecursiveFileAnalyzer;
+from scripts.recursive_file_analyzer import RecursiveFileAnalyzer, HistogramErrorDrawer;
 
 class LogAnalyzer( RecursiveFileAnalyzer ):
-    def FluxCounter( self ):
-        return self.ForEach( LogAnalyzer.CalculateFileFlux, "log" );
+    """
+    A class to interpret PyBDSF logs recursively under some root directory
 
-    def MeanAndRMS( self ):
-        return self.ForEach( LogAnalyzer.GetMeanAndRMS, "log" );
+    Parameters
+    ----------
+    path: Path | str
+        The root directory to recursively search under
+    """
+    def FMR( self ):
+        """
+        It's computationally cheaper to recurse through all log files once and do one regex match to each of them
 
-    def CalculateFileFlux( filedata: str ):
-        line = "Flux from sum of (non-blank) pixels ..... : ";
-        index = filedata.index( line );
-        index += len( line );
-        endindex = filedata.index( "Jy", index ) - 1;
-        flux = float( filedata[ index:endindex ] );
-        return flux;
+        Returns
+        -------
+        list[ tuple[ float, float, float ] ] | tuple[ float, float, float ]
+            A list of the results of __FMR() on all paths in the root dir, or the result of __FMR() on the root if the root is a path to a file
+        """
+        return self.ForEach( LogAnalyzer.__FMR, "log" );
 
-    def GetMeanAndRMS( filedata: str ):
-        exp = re.compile( r"Raw mean \(Stokes I\) =  (\d+\.\d+) mJy and raw rms =  (\d+\.\d+) mJy" );
+    def __FMR( path: Path ):
+        """
+        Parameters
+        ----------
+        path: Path
+            The path to the pybdsf log file
+
+        Returns
+        -------
+        flux: float
+            The flux of the image in Jy or arbitrary units (because of 0-1 normalizaiton)
+        mean: float
+            The raw mean of the image in mJy or arbitrary units
+        rms: float
+            The raw rms of the image in mJy or arbitrary units
+        """
+        with open( str( path ) ) as file:
+            filedata = file.read();
+        #include re.DOTALL to make the .*? able to expand over newlines
+        exp = re.compile( r"Raw mean \(Stokes I\) =  (\d+\.\d+) mJy and raw rms =  (\d+\.\d+) mJy.*?Flux from sum of \(non-blank\) pixels ..... : (\d+\.\d+) Jy", re.DOTALL );
         match = exp.search( filedata );
         mean = float( match.group( 1 ) );
         rms = float( match.group( 2 ) );
-        return mean, rms;
-
-
-def DrawHistogramWithErrorbars( data: np.ndarray, ax: plt.Axes, bins: int, range: tuple[ float, float ], label: str, color: str, density: bool, log: bool ):
-    hist, _ = np.histogram( data, bins=bins, range=range );
-    drawn_histogram, bin_data, _ = ax.hist( data, density=density, log=log, histtype='step', bins=bins, label=label, color=color, range=range );
-    bin_width = bin_data[ 1 ] - bin_data[ 0 ];
-    bin_centres = bin_data[ :-1 ] + bin_width/2.0;
-    conf_interval = astropy.stats.poisson_conf_interval( hist, sigma=1.0 );
-
-    yerr = 0;
-    if log:
-        conf_interval = np.where( conf_interval > 0, conf_interval, 1e-10 ); #zeroes cause errors when log=True
-        yerr = np.log10( conf_interval[ 1 ] / conf_interval[ 0 ] );
-    else:
-        yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
-
-    #poisson_conf_interval needs the raw data to be accurate, so we do it on the unweighted histogram and weight it afterward here
-    if density:
-        yerr /= np.sum( data );
-
-    ax.errorbar( bin_centres, drawn_histogram, yerr, fmt='.', color=color );
+        flux = float( match.group( 3 ) );
+        return flux, mean, rms;
 
 
 
@@ -76,11 +79,8 @@ if __name__ == "__main__":
 
     dataset_catalog_analyzer = LogAnalyzer( "fits_images/dataset/" );
     generated_catalog_analyzer = LogAnalyzer( "fits_images/generated/" );
-    dataset_fluxes = np.array( dataset_catalog_analyzer.FluxCounter() );
-    generated_fluxes = np.array( generated_catalog_analyzer.FluxCounter() );
-
-    dataset_mean_and_rms = np.array( dataset_catalog_analyzer.MeanAndRMS() );
-    generated_mean_and_rms = np.array( generated_catalog_analyzer.MeanAndRMS() );
+    dataset_data = np.array( dataset_catalog_analyzer.FMR() );
+    generated_data = np.array( generated_catalog_analyzer.FMR() );
 
     resolution = 1000;
     fig = plt.figure( figsize=(int(resolution*3/100), int(resolution/100)) );
@@ -93,13 +93,14 @@ if __name__ == "__main__":
 
     #Use numpy to get a histogram array of the values
     #and matplotlib to plot a log graph from the raw data
+    hist = HistogramErrorDrawer();
     BINCOUNT = 30;
-    DrawHistogramWithErrorbars( dataset_fluxes, ax=ax_flux, bins=BINCOUNT, range=(0,30), label="dataset", color="b", density=True, log=True );
-    DrawHistogramWithErrorbars( generated_fluxes, ax=ax_flux, bins=BINCOUNT, range=(0,30), label="generated", color="g", density=True, log=True );
-    DrawHistogramWithErrorbars( dataset_mean_and_rms[ :, 0 ], ax=ax_mean, bins=BINCOUNT, range=(0,150), label="dataset", color="b", density=True, log=True );
-    DrawHistogramWithErrorbars( generated_mean_and_rms[ :, 0 ], ax=ax_mean, bins=BINCOUNT, range=(0,150), label="generated", color="g", density=True, log=True );
-    DrawHistogramWithErrorbars( dataset_mean_and_rms[ :, 1 ], ax=ax_rms, bins=BINCOUNT, range=(0,200), label="dataset", color="b", density=True, log=True );
-    DrawHistogramWithErrorbars( generated_mean_and_rms[ :, 1 ], ax=ax_rms, bins=BINCOUNT, range=(0,200), label="generated", color="g", density=True, log=True );
+    hist.Draw( dataset_data[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="dataset", color="b", density=True, log=True );
+    hist.Draw( generated_data[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="generated", color="g", density=True, log=True );
+    hist.Draw( dataset_data[ :, 1 ], ax=ax_mean, bins=BINCOUNT, range=(0,150), label="dataset", color="b", density=True, log=True );
+    hist.Draw( generated_data[ :, 1 ], ax=ax_mean, bins=BINCOUNT, range=(0,150), label="generated", color="g", density=True, log=True );
+    hist.Draw( dataset_data[ :, 2 ], ax=ax_rms, bins=BINCOUNT, range=(0,200), label="dataset", color="b", density=True, log=True );
+    hist.Draw( generated_data[ :, 2 ], ax=ax_rms, bins=BINCOUNT, range=(0,200), label="generated", color="g", density=True, log=True );
 
     ax_flux.legend();
     ax_mean.legend();

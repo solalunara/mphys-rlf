@@ -19,6 +19,14 @@ from scripts.image_analyzer import ImageAnalyzer;
 from utils.logging import get_logger;
 
 class RecursiveFileAnalyzer:
+    """
+    A base class to act a function and return its value as a 1D list on all files (optionally matching an extension) under a given root directory
+
+    Parameters
+    ----------
+    path: Path | str
+        The root directory to recursively search under
+    """
     def __init__( self, path: Path | str ):
         if path is not Path:
             path = Path( path );
@@ -42,7 +50,10 @@ class RecursiveFileAnalyzer:
 
         Returns
         -------
-        a list of the return values of the function on each file in path, or the return value acted on a particular file
+        If path is a directory
+            returns a list of the file return values within the path directory
+        If path is a file
+            returns the value of the function called with the file path as a parameter
         """
         if path is None:
             path = self.path;
@@ -66,9 +77,57 @@ class RecursiveFileAnalyzer:
             
         else:
             if ( path.suffix == f".{ext}" ) or ( ext is None ):
-                with open( str( path ), "r" ) as file:
-                    return_value = function( file.read() );
+                return_value = function( path );
                 self.logger.debug( f"image log {self.counter}: {path}" );
                 self.counter += 1;
                 return return_value;
             else: return;
+
+class HistogramErrorDrawer:
+    """
+    Purely utility class to draw histograms with error bars
+    """
+    def __init__( self ):
+        pass;
+
+    def Draw( self, data: np.ndarray, ax: plt.Axes, bins: int, range: tuple[ float, float ], label: str, color: str, density: bool, log: bool ):
+        """
+        Utility function to draw a histogram with error bars according to astropy.stats.poisson_conf_interval with sigma=1.0
+
+        Parameters
+        ----------
+        data: np.ndarray
+            The data to plot
+        ax: plt.Axes
+            The axes to plot the histogram and error bars on
+        bins: int
+            Number of bins to sort the data into
+        range: tuple[ float, float ]
+            Range to plot the histogram on (neccesary parameter to compare histograms of slightly different data)
+        label: str
+            How to label the data
+        color: str
+            How to color the data
+        density: bool
+            Whether or not to make the histogram (and associated error bars) a density plot
+        log: bool
+            Whether or not to make the histogram (and associated error bars) a log plot
+        """
+        hist, _ = np.histogram( data, bins=bins, range=range );
+        drawn_histogram, bin_data, _ = ax.hist( data, density=density, log=log, histtype='step', bins=bins, label=label, color=color, range=range );
+        bin_width = bin_data[ 1 ] - bin_data[ 0 ];
+        bin_centres = bin_data[ :-1 ] + bin_width/2.0;
+        conf_interval = astropy.stats.poisson_conf_interval( hist, sigma=1.0 );
+
+        yerr = 0;
+        if log:
+            conf_interval = np.where( conf_interval > 0, conf_interval, 1e-10 ); #zeroes cause errors when log=True
+            yerr = np.log10( conf_interval[ 1 ] / conf_interval[ 0 ] );
+        else:
+            yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
+
+        #poisson_conf_interval needs the raw data to be accurate, so we do it on the unweighted histogram and weight it afterward here
+        if density:
+            yerr /= np.sum( data );
+
+        ax.errorbar( bin_centres, drawn_histogram, yerr, fmt='.', color=color );

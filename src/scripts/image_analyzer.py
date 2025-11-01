@@ -115,25 +115,66 @@ class ImageAnalyzer:
         self.catalog_args = catalog_args.copy();
         self.export_img_args = [ d.copy() for d in export_img_args ];
 
-        self.catalog_dir = catalog_dir if catalog_dir is Path else Path( catalog_dir );
-        self.img_dir = img_dir if img_dir is Path else Path( img_dir );
-        self.fits_input_dir = fits_input_dir if fits_input_dir is Path else Path( fits_input_dir );
-        self.subdir = subdir if subdir is PurePath else PurePath( subdir );
+        self.catalog_dir = catalog_dir if isinstance( catalog_dir, Path ) else Path( catalog_dir );
+        self.img_dir = img_dir if isinstance( img_dir, Path ) else Path( img_dir );
+        self.fits_input_dir = fits_input_dir if isinstance( fits_input_dir, Path ) else Path( fits_input_dir );
+        self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir );
     
+    def GetUnwrappedFITSInputList( self, path: Path | None = None ):
+        """
+        Recurse through all files in path and unwrap all fits files into a single list,
+        useful for multiprocessing
+
+        Parameters
+        ----------
+        path: Path | None
+            The path to unwrap. None defaults to "[fits_input_dir]/[subdir]"
+
+        Returns
+        -------
+        list[ Path ]
+            An unwrapped list of all fits files in path, or the path itself if it is a fits file
+        """
+        if path is None:
+            path = self.fits_input_dir / self.subdir;
+        if path.is_dir():
+            unwrapped_sublist = [];
+            for iter_file in path.iterdir():
+                result = self.GetUnwrappedFITSInputList( iter_file );
+                if isinstance( result, list ):
+                    unwrapped_sublist = unwrapped_sublist + result;
+                elif result is not None:
+                    unwrapped_sublist.append( result );
+            return unwrapped_sublist;
+        elif path.suffix == ".fits":
+            return path;
+        return None;
+
     
     def AnalyzeAllFITSInInput( self ):
         """
         Recursively analyze all of "[fits_input_dir]/[subdir]/\*\*.fits"
 
-        Spawns in one process for each top-level bin in [subdir] for parallel processing
+        Spawns in as many processes as the environment variable NUM_CPUS if set, or if not set
+        spawns in one process for each top-level bin in [subdir] for parallel processing
         """
+        n_cpus = os.environ[ "N_CPUS" ];
         input_subdir = self.fits_input_dir / self.subdir;
-        subdirectories = [];
-        for subdirectory in input_subdir.iterdir():
-            subdirectories.append( subdirectory );
+        if n_cpus is None:
+            subdirectories = [];
+            for subdirectory in input_subdir.iterdir():
+                subdirectories.append( subdirectory );
+            files = subdirectories;
+        elif isinstance( n_cpus, str ):
+            n_cpus = int( n_cpus );
+
+        if isinstance( n_cpus, int ):
+            files = self.GetUnwrappedFITSInputList( input_subdir );
+
+        p = NonDaemonPool( processes=n_cpus );
+        p.map( self.AnalyzeFITSInPath, files );
         
-        p = NonDaemonPool( processes=len( subdirectories ) );
-        p.map( self.AnalyzeFITSInPath, subdirectories );
+        
     
     def AnalyzeFITSInPath( self, path: Path | str ):
         """
@@ -144,7 +185,7 @@ class ImageAnalyzer:
         path : Path | str
             the path to analyze, either to a folder which will be analyzed recursively or to a file
         """
-        if path is not Path:
+        if not isinstance( path, Path ):
             path = Path( path );
 
         if path.is_dir():
@@ -232,5 +273,5 @@ if __name__ == "__main__":
     dataset_analyzer = ImageAnalyzer( "dataset" );
     generated_analyzer = ImageAnalyzer( "generated" );
 
-    dataset_analyzer.AnalyzeAllFITSInInput();
+    #dataset_analyzer.AnalyzeAllFITSInInput();
     generated_analyzer.AnalyzeAllFITSInInput();

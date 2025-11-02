@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument( "-d", "--distribute_model", help="Whether or not to use avaliable GPUs for sampling, as opposed to the CPU and RAM - default True", type=bool, default=True );
     parser.add_argument( "-s", "--scale_results", help="Whether or not to scale resultant images 0-1 - default True", type=bool, default=True );
     parser.add_argument( "-sz", "--bin_size", help="How large the bins the generated images are sorted into are - default 10000", type=int, default=10000 );
-    parser.add_argument( "-i", "--initial_value", help="The number to start generation at - default 0", type=int, default=0 );
+    parser.add_argument( "-i", "--initial_count", help="What value to start generation at (affects file saving) - default 0", type=int, default=0 );
     args = parser.parse_args();
 
     batch_size = args.batch_size;
@@ -36,10 +36,10 @@ if __name__ == "__main__":
     distribute_model = args.distribute_model;
     scale_results = args.scale_results;
     bin_size = args.bin_size;
-    initial_value = args.initial_value;
+    initial_count = args.initial_count;
 
     model_sampler = model.sampler.Sampler();
-    samplecount = initial_value;
+    samplecount = initial_count;
     image_analyzer = ImageAnalyzer( "generated" );
     while samplecount < n_samples:
         samples = model_sampler.quick_sample(

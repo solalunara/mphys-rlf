@@ -131,7 +131,16 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             arg_used = False;
             if key.find( 'catalog_' ) > -1:
                 if write_catalog:
-                    self.catalog_args[ key[ len( 'catalog_' ): ] ] = val;
+                    new_key = key[ len( 'catalog_' ): ];
+
+                    #expand type to catalog_type and skip if new_key is already catalog_type
+                    if new_key == 'type':
+                        new_key = 'catalog_type'
+                    elif new_key == 'catalog_type':
+                        self.logger.info( 'Skipping argument catalog_catalog_type: please refer to write_catalog in ImageAnalyzer docstring' );
+                        continue;
+
+                    self.catalog_args[ new_key ] = val;
                 else:
                     self.logger.warning( 'WARNING - argument %s passed with catalog prefix but write_catalog is false', key );
                 arg_used = True;

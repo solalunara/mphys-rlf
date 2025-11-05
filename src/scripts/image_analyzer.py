@@ -170,14 +170,28 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         Recursively analyze all of "[fits_input_dir]/[subdir]/\*\*.fits"
 
         Spawns in as many processes as the environment variable N_CPUS if set, or if not set
-        spawns one process
+        spawns one process. If environment variables SLURM_ARRAY_TASK_COUNT and SLURM_ARRAY_TASK_ID
+        are set, will only process the files designated to this task, with a bin defined by
+        ( task_id / task_count * len( files ) ) to ( ( task_id + 1 ) / task_count * len( files ) )
         """
-        n_cpus = os.environ[ "N_CPUS" ] or 1;
-        input_subdir = self.fits_input_dir / self.subdir;
+        task_count = int( os.environ.get( "SLURM_ARRAY_TASK_COUNT", 1 ) );
+        task_id = int( os.environ.get( "SLURM_ARRAY_TASK_ID", 0 ) );
+
+        n_cpus = os.environ.get( "N_CPUS", 1 );
         if isinstance( n_cpus, str ):
             n_cpus = int( n_cpus );
+        self.logger.info( "Using %i cpu" + ( "s" if n_cpus != 1 else "" ), n_cpus );
+        input_subdir = self.fits_input_dir / self.subdir;
 
         files = self.GetUnwrappedList( input_subdir, 'fits' );
+
+        #distribute across multiple tasks
+        n_files = len( files );
+        bin_start = int( task_id / task_count * n_files );
+        bin_end = int( ( task_id + 1 ) / task_count * n_files );
+        if task_id + 1 == task_count:
+            bin_end = n_files; #just in case the float->int conversion is messy
+        files = files[ bin_start:bin_end ];
 
         p = NonDaemonPool( processes=n_cpus );
         p.map( self.AnalyzeFITSAtPath, files );

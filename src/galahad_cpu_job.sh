@@ -3,17 +3,19 @@
 #SBATCH --job-name=ashley-luna-mphys-rlf
 #SBATCH --constraint=A100
 #SBATCH --time=1-23
-#SBATCH --ntasks-per-node=1
-#SBATCH --nodes=1
 #SBATCH --output=/share/nas2_3/lgreen/logs/out-slurm_%j.out
-#SBATCH -c 24
 #SBATCH --no-requeue
+#SBATCH --array=0-5
+#SBATCH --chdir=/share/nas2_3/lgreen/mphys-rlf
+#SBATCH --cpus-per-task=16
+
+set -e
 
 pwd;
 
-nvidia-smi
-echo ">>>start"
+echo ">>>activating venv"
 source /share/nas2_3/lgreen/mphys-rlf/.venv/bin/activate
-echo ">>>sampling"
-N_CPUS=24 python /share/nas2_3/lgreen/mphys-rlf/src/scripts/image_analyzer.py
+echo ">>>starting program"
+export N_CPUS=$SLURM_CPUS_PER_TASK
+python /share/nas2_3/lgreen/mphys-rlf/src/scripts/image_analyzer.py
 

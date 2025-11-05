@@ -15,7 +15,6 @@ sys.path.insert(0, src_dir)
 
 import scripts.fits_viewer;
 from scripts.dataset_h5_to_fits import H5ToFitsConverter;
-from scripts.image_analyzer import ImageAnalyzer;
 from utils.logging import get_logger;
 
 class RecursiveFileAnalyzer:
@@ -33,8 +32,40 @@ class RecursiveFileAnalyzer:
         self.path = path;
         self.counter = 0;
         self.logger = get_logger( __name__ );
+
+    def GetUnwrappedList( self, path: Path | None = None, *exts: list[str] ):
+        """
+        Recurse through all files in path and unwrap all files into a single list,
+        useful for multiprocessing
+
+        Parameters
+        ----------
+        path: Path | None = None
+            The path to unwrap. None defaults to root (self.path).
+        *ext: list[str]
+            The extension(s) to filter for - items not matching one of these extensions will not be returned. If empty return all.
+
+        Returns
+        -------
+        list[ Path ]
+            An unwrapped list of all files in path, or the path itself if it is a fits file
+        """
+        if path is None:
+            path = self.fits_input_dir / self.subdir;
+        if path.is_dir():
+            unwrapped_sublist = [];
+            for iter_file in path.iterdir():
+                result = self.GetUnwrappedList( iter_file, *exts );
+                if isinstance( result, list ):
+                    unwrapped_sublist = unwrapped_sublist + result;
+                elif result is not None:
+                    unwrapped_sublist.append( result );
+            return unwrapped_sublist;
+        elif ( len( exts ) == 0 ) or ( exts.count( path.suffix[ 1: ] ) > 0 ):
+            return path;
+        return None;
     
-    def ForEach( self, function, ext: str | None = None, path: Path | str | None = None ):
+    def ForEach( self, function, path: Path | str | None = None, ext: str | None = None ):
         """
         A method to perform a generic function on all files within a directory given by path, or
         to read path as a file and perform the generic function on its contents, with optional file extension filtering
@@ -43,10 +74,10 @@ class RecursiveFileAnalyzer:
         ----------
         function : callable
             The function which will be called on each file in path recursively
-        ext : str | None = None
-            Only call the function and return values of the function on files that match this extension. If none match all files.
         path : Path | str | None = None
             The path to the file root, or any subdirectory or file. If none defaults to file root dir.
+        ext : str | None = None
+            Only call the function and return values of the function on files that match this extension. If none match all files.
 
         Returns
         -------

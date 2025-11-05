@@ -16,8 +16,8 @@ src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, src_dir)
 
 import utils.logging;
+from recursive_file_analyzer import RecursiveFileAnalyzer;
 
-logger = utils.logging.get_logger(__name__);
 
 #Neccesary pool extention - PyBDSF uses daemon processes but only sometimes, and we want to batch the files themselves
 #Courtesy of https://stackoverflow.com/questions/52948447/error-group-argument-must-be-none-for-now-in-multiprocessing-pool
@@ -41,7 +41,7 @@ class NonDaemonPool(multiprocessing.pool.Pool):
 
 
 
-class ImageAnalyzer:
+class ImageAnalyzer( RecursiveFileAnalyzer ):
     """
     A class to analyze images of radio galaxies using PyBDSF, with LOFAR defaults
 
@@ -51,8 +51,12 @@ class ImageAnalyzer:
         The subdirectory appended to all root directories, to separate different use cases,
         i.e. files are read from "[fits_input_dir]/[subdir]/\*\*.fits",
         catalogs are written to "[catalog_dir]/[subdir]/\*\*.fits",
-        and images are written to "[img_dir]/[subdir]/\*\*.fits",
+        and images are written to "[img_dir]/[subdir]/[img_type]/\*\*.fits",
         where "\*\*" implies the files are recursively searched for, allowing the data to be segmented into folder bins
+
+    fits_input_dir : str | Path = "fits_images/"
+        Root directory of all fits input files. Images are taken from "[fits_input_dir]/[subdir]/\*\*.fits",
+        where the postfix after subdir is used as the postfix for img_dir and catalog_dir
 
     catalog_dir : str | Path = "pybdsf_catalogs/"
         Root directory of all catalogs. Catalogs are written to "[catalog_dir]/[subdir]/\*\*.fits"
@@ -60,39 +64,39 @@ class ImageAnalyzer:
     img_dir : str | Path = "fits_images/reconstructed"
         Root directory of all images exported by PyBDSF. Images are written to "[img_dir]/[subdir]/[img_type]/\*\*.fits"
 
-    fits_input_dir : str | Path = "fits_images/"
-        Root directory of all fits input files. Images are taken from "[fits_input_dir]/[subdir]/\*\*.fits",
-        where the postfix after subdir is used as the postfix for img_dir and catalog_dir
-    
-    process_args : dict = LOFAR_process_arg_defaults
-        Arguments to pass to bdsf.process_image. Refer to PyBDSF documentation for an exhaustive list.
-        If none, default values for the project are filled from LOFAR:
-            beam = (0.00166667, 0.00166667, 0.0),
-            thresh_isl = 5,
-            thresh_pix = 0.5,
-            mean_map = "const",
-            rms_map = True,
-            thresh = "hard",
-            frequency = 144e6
+    write_catalog : bool = True
+        Whether or not to write a catalog. If true, arguments can be passed to bdsf.write_catalog
+        by prefixing them with 'catalog_' in kwargs. For example, the default args are "catalog_type='srl', 
+        catalog_clobber=True" which is the equivalent of passing "catalog_type='srl', clobber=True" to 
+        bdsf.write_catalog. Of note, the pybdsf argument 'catalog_type' is shortened here to simply 'type' 
+        for the avoidance of writing the argument 'catalog_catalog_type'. If 'catalog_catalog_type' is passed 
+        as an argument it will be ignored. If false, catalog_ args are ignored. Outfile cannot be specified - see
+        catalog_dir or subdir for output directory structure.
 
-    catalog_args : dict | None = dict( format='fits', catalog_type='srl', clobber=True )
-        Arguments to pass to the bdsf.write_catalog function, or None to not write a catalog.
-        Refer to PyBDSF documentation for an exhaustive list.
+    export_images : list[ str ]
+        Types of pybdsf images to export. See pybdsf documentation for the types of images that can be exported.
+        Arguments can be passed to bdsf.export_image by prefixing them with the image type in export_images followed
+        by an underscore. For example, to write pybdsf's 'gaus_model' image, pass 'gaus_model' to export_images as
+        a free string parameter, then to overwrite if the file exists with pybdsf's 'clobber' parameter, pass
+        "gaus_model_clobber=True" in to kwargs. Outfile cannot be specified - see subdir for output directory structure
 
-    export_img_args: list[dict] = [ dict( img_type='gaus_model', clobber=True ) ]
-        Arguments to pass to the bdsf.export_image function. The array entries correspond to calls to the function,
-        allowing multiple different calls, or an empty array to not export any images. The default will export
-        one image - the reconstruction
+    **kwargs : dict
+        All arguments to pass to bdsf.export_catalog, bdsf.export_image, and bdsf.process_image. The method for
+        formatting arguments to export_catalog and export_image are explained above in write_catalog and *export_images.
+        To pass arguments to bdsf.process_image, pass the arguments with the prefix 'process_'. For example, to process
+        an image with the defaults used in this project, pass "process_beam = (0.00166667, 0.00166667, 0.0),
+        process_thresh_isl = 5, process_thresh_pix = 0.5, process_mean_map = 'const', process_rms_map = True,
+        process_thresh = 'hard', process_frequency = 144e6". For PyBDSF, beam and frequency must be present.
     """
 
     LOFAR_process_arg_defaults = dict(
-        beam = (0.00166667, 0.00166667, 0.0),
-        thresh_isl = 5,
-        thresh_pix = 0.5,
-        mean_map = "const",
-        rms_map = True,
-        thresh = "hard",
-        frequency = 144e6
+        process_beam = (0.00166667, 0.00166667, 0.0),
+        process_thresh_isl = 5,
+        process_thresh_pix = 0.5,
+        process_mean_map = "const",
+        process_rms_map = True,
+        process_thresh = "hard",
+        process_frequency = 144e6
     );
 
     def __init__( self, 
@@ -100,132 +104,126 @@ class ImageAnalyzer:
                   fits_input_dir: str | Path = "fits_images/",
                   catalog_dir: str | Path = "pybdsf_catalogs/",
                   img_dir: str | Path = "fits_images/exported/",
-                  process_args: dict = LOFAR_process_arg_defaults,
-                  catalog_args: dict | None = dict(
-                    format='fits',
-                    catalog_type='srl',
-                    clobber=True
-                  ),
-                  export_img_args: list[dict] = [
-                      dict( img_type='gaus_model', clobber=True )
-                  ] ):
+                  write_catalog: bool = True,
+                  export_images: list[ str ] | None = None,
+                  **kwargs: dict ):
 
-        #arrays and dicts need to be copied from templates for memory safety
-        self.process_args = process_args.copy();
-        self.catalog_args = catalog_args.copy();
-        self.export_img_args = [ d.copy() for d in export_img_args ];
-
+        #Ensure all types are paths
         self.catalog_dir = catalog_dir if isinstance( catalog_dir, Path ) else Path( catalog_dir );
         self.img_dir = img_dir if isinstance( img_dir, Path ) else Path( img_dir );
         self.fits_input_dir = fits_input_dir if isinstance( fits_input_dir, Path ) else Path( fits_input_dir );
         self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir );
+        self.write_catalog = write_catalog;
+        self.export_images = export_images or [];
+        self.logger = utils.logging.get_logger( self.__class__.__name__ );
+
+        #Image Analyzer is a recursive analyzer for fits_input_dir/subdir, with additional utilities for catalog_dir and img_dir
+        super().__init__( self.fits_input_dir / self.subdir );
+
+        self.process_args = dict();
+        self.catalog_args = dict();
+        self.export_img_args = dict(); #elements will be (str, img args dict)
+        for img_type in export_images:
+            self.export_img_args[ img_type ] = dict( img_type=img_type );
+
+        #Loop through kwargs and sort arguments into catalog, export_img, or process
+        for key, val in kwargs.items():
+            arg_used = False;
+            if key.find( 'catalog_' ) > -1:
+                if write_catalog:
+                    self.catalog_args[ key[ len( 'catalog_' ): ] ] = val;
+                else:
+                    self.logger.warning( 'WARNING - argument %s passed with catalog prefix but write_catalog is false', key );
+                arg_used = True;
+            for img_type in export_images:
+                if key.find( f'{img_type}_' ) > -1:
+                    self.export_img_args[ img_type ][ key[ len( f'{img_type}_' ): ] ] = val;
+                    arg_used = True;
+            if key.find( 'process_' ) > -1:
+                self.process_args[ key[ len( 'process_' ): ] ] = val;
+                arg_used = True;
+            if not arg_used:
+                self.logger.warning( 'WARNING - argument %s passed but not used (are you passing all neccesary strings for export_images?)' )
+
+        #Clobber by default if nothing passed
+        if write_catalog:
+            self.catalog_args[ 'clobber' ] = self.catalog_args.get( 'clobber', True );
+        for img_type in export_images:
+            self.export_img_args[ img_type ][ 'clobber' ] = self.export_img_args[ img_type ].get( 'clobber', True );
     
-    def GetUnwrappedFITSInputList( self, path: Path | None = None ):
-        """
-        Recurse through all files in path and unwrap all fits files into a single list,
-        useful for multiprocessing
-
-        Parameters
-        ----------
-        path: Path | None
-            The path to unwrap. None defaults to "[fits_input_dir]/[subdir]"
-
-        Returns
-        -------
-        list[ Path ]
-            An unwrapped list of all fits files in path, or the path itself if it is a fits file
-        """
-        if path is None:
-            path = self.fits_input_dir / self.subdir;
-        if path.is_dir():
-            unwrapped_sublist = [];
-            for iter_file in path.iterdir():
-                result = self.GetUnwrappedFITSInputList( iter_file );
-                if isinstance( result, list ):
-                    unwrapped_sublist = unwrapped_sublist + result;
-                elif result is not None:
-                    unwrapped_sublist.append( result );
-            return unwrapped_sublist;
-        elif path.suffix == ".fits":
-            return path;
-        return None;
-
+        #Set process arg defaults to project defaults if nothing passed
+        for key, val in ImageAnalyzer.LOFAR_process_arg_defaults.items():
+            self.process_args[ key[ len( 'process_' ): ] ] = self.process_args.get( key[ len( 'process_' ): ], val );
+ 
     
     def AnalyzeAllFITSInInput( self ):
         """
         Recursively analyze all of "[fits_input_dir]/[subdir]/\*\*.fits"
 
-        Spawns in as many processes as the environment variable NUM_CPUS if set, or if not set
-        spawns in one process for each top-level bin in [subdir] for parallel processing
+        Spawns in as many processes as the environment variable N_CPUS if set, or if not set
+        spawns one process
         """
-        n_cpus = os.environ[ "N_CPUS" ];
+        n_cpus = os.environ[ "N_CPUS" ] or 1;
         input_subdir = self.fits_input_dir / self.subdir;
-        if n_cpus is None:
-            subdirectories = [];
-            for subdirectory in input_subdir.iterdir():
-                subdirectories.append( subdirectory );
-            files = subdirectories;
-        elif isinstance( n_cpus, str ):
+        if isinstance( n_cpus, str ):
             n_cpus = int( n_cpus );
 
-        if isinstance( n_cpus, int ):
-            files = self.GetUnwrappedFITSInputList( input_subdir );
+        files = self.GetUnwrappedList( input_subdir, 'fits' );
 
         p = NonDaemonPool( processes=n_cpus );
-        p.map( self.AnalyzeFITSInPath, files );
+        p.map( self.AnalyzeFITSAtPath, files );
         
         
     
-    def AnalyzeFITSInPath( self, path: Path | str ):
+    def AnalyzeFITSAtPath( self, path: Path | str ):
         """
-        Recursive function to analyze all files under a given path
+        Function to analyze a single fits file at a given path
 
         Parameters
         ----------
         path : Path | str
-            the path to analyze, either to a folder which will be analyzed recursively or to a file
+            the path to the file to analyze
         """
         if not isinstance( path, Path ):
             path = Path( path );
 
         if path.is_dir():
-            logger.debug( "Entering directory %s", str( path ) );
-            for sub_path in path.iterdir():
-                self.AnalyzeFITSInPath( sub_path );
+            self.logger.error( 'ERROR - Cannot analyze %s as fits file, is directory', str( path ) );
         else:
             if path.suffix == ".fits":
                 #First see if we have any work to do
                 postfix = path.parts[ (path.parts.index( str( self.subdir ) ) + 1 ): ];
-                write_catalog = self.catalog_args is not None;
+                write_catalog = self.write_catalog;
                 if write_catalog:
                     catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
                     if catalog_outfile.exists():
                         write_catalog = False;
-                local_export_img_args = [];
-                for single_image_args in self.export_img_args:
-                    image_outfile = self.img_dir / self.subdir / PurePath( single_image_args[ "img_type" ] ).joinpath( *postfix );
+                export_images = [];
+                for img_type in self.export_images:
+                    image_outfile = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *postfix );
                     if not image_outfile.exists():
-                        local_export_img_args.append( single_image_args.copy() );
+                        export_images.append( img_type );
                 
-                if not write_catalog and len( local_export_img_args ) == 0:
-                    print( f"Skipping {path}, no work to do" );
+                if not write_catalog and len( export_images ) == 0:
+                    self.logger.info( f"Skipping {path}, no work to do" );
                     return; #nothing to do
-                print( f"Processing {path}:" );
+                self.logger.info( f"Processing {path}:" );
 
                 #Something to do, process the image
-                #note - single star for array expansion, double star for dict expansion
                 img: bdsf.image.Image = bdsf.process_image(
                     str( path ),
                     **self.process_args
                 );
-                for single_image_args in local_export_img_args:
-                    image_outfile = self.img_dir / self.subdir / PurePath( single_image_args[ "img_type" ] ).joinpath( *postfix );
+                for img_type in export_images:
+                    image_outfile = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *postfix );
                     image_outfile.parent.mkdir( parents=True, exist_ok=True );
-                    img.export_image( outfile=str( image_outfile ), **single_image_args );
-                if write_catalog and self.catalog_args is not None:
+                    img.export_image( outfile=str( image_outfile ), **self.export_img_args[ img_type ] );
+                if write_catalog:
                     catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
                     catalog_outfile.parent.mkdir( parents=True, exist_ok=True );
                     img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args );
+            else:
+                self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) );
     
     def SaveImageToFITS( self, image: np.ndarray, postfix: str ):
         """
@@ -268,10 +266,11 @@ class ImageAnalyzer:
             and location under "[fits_input_dir]/[subdir]/" to store it in (e.g. "example_bin/example.fits")
         """
         self.SaveImageToFITS( image, postfix );
+        self.AnalyzeFITSAtPath( self.fits_input_dir / self.subdir / postfix );
 
 if __name__ == "__main__":
-    dataset_analyzer = ImageAnalyzer( "dataset" );
-    generated_analyzer = ImageAnalyzer( "generated" );
+    dataset_analyzer = ImageAnalyzer( "dataset", export_images=[ 'gaus_model', 'gaus_resid' ] );
+    generated_analyzer = ImageAnalyzer( "generated", export_images=[ 'gaus_model', 'gaus_resid' ] );
 
-    #dataset_analyzer.AnalyzeAllFITSInInput();
+    dataset_analyzer.AnalyzeAllFITSInInput();
     generated_analyzer.AnalyzeAllFITSInInput();

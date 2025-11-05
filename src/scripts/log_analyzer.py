@@ -18,6 +18,8 @@ import scripts.fits_viewer;
 from scripts.dataset_h5_to_fits import H5ToFitsConverter;
 from scripts.image_analyzer import ImageAnalyzer;
 from scripts.recursive_file_analyzer import RecursiveFileAnalyzer, HistogramErrorDrawer;
+import argparse;
+import logging;
 
 class LogAnalyzer( RecursiveFileAnalyzer ):
     """
@@ -37,7 +39,7 @@ class LogAnalyzer( RecursiveFileAnalyzer ):
         list[ tuple[ float, float, float ] ] | tuple[ float, float, float ]
             A list of the results of __FMR() on all paths in the root dir, or the result of __FMR() on the root if the root is a path to a file
         """
-        return self.ForEach( LogAnalyzer.__FMR, "log" );
+        return self.ForEach( LogAnalyzer.__FMR, ext="log" );
 
     def __FMR( path: Path ):
         """
@@ -68,6 +70,10 @@ class LogAnalyzer( RecursiveFileAnalyzer ):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser();
+    parser.add_argument( "-v", "--verbose", help="Print a message to the console every time a file is read or a directory is entered", action='store_true' );
+    args = parser.parse_args();
+    verbose = args.verbose;
 
     #Create and analyze FITS images from the dataset if they don't exist
     if not Path( "fits_images/dataset" ).exists():
@@ -77,8 +83,10 @@ if __name__ == "__main__":
         dataset_analyzer = ImageAnalyzer( "dataset" );
         dataset_analyzer.AnalyzeAllFITSInInput();
 
-    dataset_catalog_analyzer = LogAnalyzer( "fits_images/dataset/" );
-    generated_catalog_analyzer = LogAnalyzer( "fits_images/generated/" );
+    log_level = logging.DEBUG if verbose else logging.INFO;
+
+    dataset_catalog_analyzer = LogAnalyzer( "fits_images/dataset/", log_level );
+    generated_catalog_analyzer = LogAnalyzer( "fits_images/generated/", log_level );
     dataset_data = np.array( dataset_catalog_analyzer.FMR() );
     generated_data = np.array( generated_catalog_analyzer.FMR() );
 

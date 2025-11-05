@@ -25,16 +25,16 @@ if __name__ == "__main__":
     parser.add_argument( "-n", "--n-samples", help="The number of samples to generate - default 10000", type=int, default=60000 );
     parser.add_argument( "-t", "--timesteps", help="The number of timesteps in sampling - default 25", type=int, default=25 );
     parser.add_argument( "-c", "--use-cpu", help="Whether or not to use CPU and RAM for sampling, as opposed to using avaliable GPUs", action=argparse.BooleanOptionalAction );
-    parser.add_argument( "-u", "--leave-unscaled", help="Whether or not to leave the images unscaled instead of scaling them 0-1", action=argparse.BooleanOptionalAction );
+    parser.add_argument( "-p", "--preserve-values", help="Whether or not to preserve unscaled image values. By default images are scaled 0-1", action=argparse.BooleanOptionalAction );
     parser.add_argument( "-sz", "--bin-size", help="How large the bins the generated images are sorted into are - default 10000", type=int, default=10000 );
-    parser.add_argument( "-i", "--initial_count", help="What value to start generation at (affects file saving) - default 0", type=int, default=0 );
+    parser.add_argument( "-i", "--initial-count", help="What value to start generation at (affects file saving) - default 0", type=int, default=0 );
     args = parser.parse_args();
 
     batch_size = args.batch_size;
     n_samples = args.n_samples;
     timesteps = args.timesteps;
     distribute_model = not args.use_cpu;
-    scale_results = not args.leave_unscaled;
+    scale_results = not args.preserve_values;
     bin_size = args.bin_size;
     initial_count = args.initial_count;
 

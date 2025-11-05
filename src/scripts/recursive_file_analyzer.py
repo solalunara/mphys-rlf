@@ -7,6 +7,7 @@ import astropy.io.fits
 import numpy as np;
 from pathlib import Path;
 import matplotlib.pyplot as plt;
+import logging;
 
 
 # Add the src directory to Python path so we can import modules
@@ -21,17 +22,23 @@ class RecursiveFileAnalyzer:
     """
     A base class to act a function and return its value as a 1D list on all files (optionally matching an extension) under a given root directory
 
+    If the OS environment variable 
+
     Parameters
     ----------
     path: Path | str
         The root directory to recursively search under
+    log_level: int = logging.INFO
+        The log level for the recursive file analyzer logger. When set to DEBUG, will log a message to the console when a directory is entered
+        or a file read, with an index associated with each read file. Useful for slow operations to provide feedback on progress. Default logging.INFO
     """
-    def __init__( self, path: Path | str ):
+    def __init__( self, path: Path | str, log_level: int = logging.INFO ):
         if path is not Path:
             path = Path( path );
         self.path = path;
         self.counter = 0;
-        self.logger = get_logger( __name__ );
+        self.logger = get_logger( self.__class__.__name__ );
+        self.logger.setLevel( log_level );
 
     def GetUnwrappedList( self, path: Path | None = None, *exts: list[str] ):
         """
@@ -88,14 +95,15 @@ class RecursiveFileAnalyzer:
         """
         if path is None:
             path = self.path;
-            self.counter = 0;
+            self.counter = 0; #recursive func, only reset counter when called on top level
         if path is not Path:
             path = Path( path );
 
         if path.is_dir():
             return_values = [];
+            self.logger.debug( "Entering directory %s", path );
             for sub_path in path.iterdir():
-                sub_return_values = self.ForEach( function, ext, sub_path );
+                sub_return_values = self.ForEach( function, sub_path, ext );
 
                 #concatenate result lists so we end up with a big 1d array as a result
                 #and toss None values (which we get if the extension doesn't match, or the fn itself returns None)
@@ -109,7 +117,7 @@ class RecursiveFileAnalyzer:
         else:
             if ( path.suffix == f".{ext}" ) or ( ext is None ):
                 return_value = function( path );
-                self.logger.debug( f"image log {self.counter}: {path}" );
+                self.logger.debug( f"Reading file {self.counter}: {path}" );
                 self.counter += 1;
                 return return_value;
             else: return;

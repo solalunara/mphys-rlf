@@ -17,6 +17,8 @@ import scripts.fits_viewer;
 from scripts.dataset_h5_to_fits import H5ToFitsConverter;
 from scripts.image_analyzer import ImageAnalyzer;
 from scripts.recursive_file_analyzer import RecursiveFileAnalyzer, HistogramErrorDrawer;
+import argparse;
+import logging;
 
 class CatalogAnalyzer( RecursiveFileAnalyzer ):
     """
@@ -36,7 +38,10 @@ class CatalogAnalyzer( RecursiveFileAnalyzer ):
         list[ tuple[ float, float ] ] | tuple[ float, float ]
             A list of the results of __FluxCounter() on all paths in the root dir, or the result of __FluxCounter() on the root if the root is a path to a file
         """
-        return self.ForEach( CatalogAnalyzer.__FluxCounter, "fits" );
+        self.logger.debug( 'Begin flux counter function' );
+        val = self.ForEach( CatalogAnalyzer.__FluxCounter, ext="fits" );
+        self.logger.debug( 'End flux counter function' );
+        return val;
 
     def __FluxCounter( path: Path ):
         """
@@ -63,6 +68,10 @@ class CatalogAnalyzer( RecursiveFileAnalyzer ):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser();
+    parser.add_argument( "-v", "--verbose", help="Print a message to the console every time a file is read or a directory is entered", action='store_true' );
+    args = parser.parse_args();
+    verbose = args.verbose;
 
     #Create and analyze FITS images from the dataset if they don't exist
     if not Path( "fits_images/dataset" ).exists():
@@ -71,9 +80,11 @@ if __name__ == "__main__":
     if not Path( "pybdsf_catalogs/dataset" ):
         dataset_analyzer = ImageAnalyzer( "dataset" );
         dataset_analyzer.AnalyzeAllFITSInInput();
+    
+    log_level = logging.DEBUG if verbose else logging.INFO;
 
-    dataset_catalog_analyzer = CatalogAnalyzer( "pybdsf_catalogs/dataset/" );
-    generated_catalog_analyzer = CatalogAnalyzer( "pybdsf_catalogs/generated/" );
+    dataset_catalog_analyzer = CatalogAnalyzer( "pybdsf_catalogs/dataset/", log_level );
+    generated_catalog_analyzer = CatalogAnalyzer( "pybdsf_catalogs/generated/", log_level );
     dataset_fluxes = np.array( dataset_catalog_analyzer.FluxCounter() ); #both fluxes and flux errors, (N,2)
     generated_fluxes = np.array( generated_catalog_analyzer.FluxCounter() ); #both fluxes and flux errors, (N,2)
 

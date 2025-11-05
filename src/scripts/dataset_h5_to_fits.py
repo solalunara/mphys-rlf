@@ -38,11 +38,12 @@ class H5ToFitsConverter:
 
             00010 -> fits_output_dir/0-9999/0-2999/0-999/image10.fits
 
-            09150 -> fits_output_dir/0-9999/9000-11999/9100-9199/image9150.fits
+            09150 -> fits_output_dir/0-9999/9000-9999/9100-9199/image9150.fits
 
             12120 -> fits_output_dir/10000-19999/12000-14999/12100-12199/image12120.fits
 
-            As can be seen with 9150, if the bins don't fit nicely into each other 
+            As can be seen with 9150, bins are funneled such that the upper bound of an inner bin is always less than or equal to the upper bound of all
+            its outer bins, and the opposite with the lower bound of an inner bin.
         """
         bin_sizes = sorted( bin_sizes, reverse=True );
         with h5py.File( str( self.h5_file ), 'r' ) as h5:

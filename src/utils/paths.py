@@ -1,6 +1,8 @@
 import urllib.request
 from pathlib import Path
 from indexed import IndexedOrderedDict
+import os
+import shutil
 
 from utils.logging import show_dl_progress
 
@@ -45,8 +47,16 @@ for f in [LOFAR_DATA_PARENT, FIRST_DATA_PARENT]:
 
 # Pretrained models
 PRETRAINED_PARENT = MODEL_PARENT / "pretrained"
+LOFAR_MODEL_PARENT = MODEL_PARENT / "LOFAR_model"
 if not PRETRAINED_PARENT.exists():
     PRETRAINED_PARENT.mkdir()
+if not LOFAR_MODEL_PARENT.exists():
+    LOFAR_MODEL_PARENT.mkdir()
+
+# Copy sample lofar config to sampling directory
+LOFAR_SAMPLING_CONFIG_PATH = LOFAR_MODEL_PARENT / "config_LOFAR_model.json"
+if not LOFAR_SAMPLING_CONFIG_PATH.exists():
+    shutil.copy(CONFIG_PARENT / "LOFAR_Model.json", LOFAR_SAMPLING_CONFIG_PATH)
 
 # Train data subsets
 LOFAR_SUBSETS = IndexedOrderedDict(
@@ -77,6 +87,8 @@ for file, link in files.items():
     if not file.exists():
         print("Downloading: ", file)
         urllib.request.urlretrieve(f"{link}/download", file, show_dl_progress)
+        print("Copying to sampling directory")
+        shutil.copyfile(file, LOFAR_MODEL_PARENT / file.name)
         print("Done.")
 
 

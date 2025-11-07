@@ -1,7 +1,7 @@
-from image_analyzer import ImageAnalyzer;
+from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 from pathlib import Path;
 from astropy.io import fits;
-from fits_viewer import FitsViewer;
+from scripts.fits_viewer import FitsViewer;
 
 if __name__ == "__main__":
     #get a generic residual image

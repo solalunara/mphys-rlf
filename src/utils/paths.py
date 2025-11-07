@@ -46,15 +46,16 @@ for f in [LOFAR_DATA_PARENT, FIRST_DATA_PARENT]:
         f.mkdir()
 
 # Pretrained models
+LOFAR_MODEL_NAME = "LOFAR_model"
 PRETRAINED_PARENT = MODEL_PARENT / "pretrained"
-LOFAR_MODEL_PARENT = MODEL_PARENT / "LOFAR_model"
+LOFAR_MODEL_PARENT = MODEL_PARENT / LOFAR_MODEL_NAME
 if not PRETRAINED_PARENT.exists():
     PRETRAINED_PARENT.mkdir()
 if not LOFAR_MODEL_PARENT.exists():
     LOFAR_MODEL_PARENT.mkdir()
 
 # Copy sample lofar config to sampling directory
-LOFAR_SAMPLING_CONFIG_PATH = LOFAR_MODEL_PARENT / "config_LOFAR_model.json"
+LOFAR_SAMPLING_CONFIG_PATH = LOFAR_MODEL_PARENT / f"config_{LOFAR_MODEL_NAME}.json"
 if not LOFAR_SAMPLING_CONFIG_PATH.exists():
     shutil.copy(CONFIG_PARENT / "LOFAR_Model.json", LOFAR_SAMPLING_CONFIG_PATH)
 
@@ -74,13 +75,13 @@ CUTOUTS_DIR = LOFAR_DATA_PARENT / "cutouts"
 LOFAR_RES_CAT = LOFAR_DATA_PARENT / "6-LoTSS_DR2-public-resolved_sources.csv"
 
 # Check if files are present, if not download:
+LOFAR_DATA_PATH = LOFAR_DATA_PARENT / "LOFAR_Dataset.h5"
 files = {
     PRETRAINED_PARENT
     / "parameters_LOFAR_model.pt": "https://cloud.hs.uni-hamburg.de/s/KTAFWFnLByMgNRn",
     PRETRAINED_PARENT
     / "parameters_FIRST_model.pt": "https://cloud.hs.uni-hamburg.de/s/xs7bbt99AMFf8gP",
-    LOFAR_DATA_PARENT
-    / "LOFAR_Dataset.h5": "https://cloud.hs.uni-hamburg.de/s/jPZdExPPmcZ48o5",
+    LOFAR_DATA_PATH: "https://cloud.hs.uni-hamburg.de/s/jPZdExPPmcZ48o5",
 }
 
 for file, link in files.items():
@@ -88,9 +89,26 @@ for file, link in files.items():
         print("Downloading: ", file)
         urllib.request.urlretrieve(f"{link}/download", file, show_dl_progress)
         print("Copying to sampling directory")
-        shutil.copyfile(file, LOFAR_MODEL_PARENT / file.name)
+        shutil.copyfile(file, LOFAR_MODEL_PARENT / f"parameters_{LOFAR_MODEL_NAME}.pt")
         print("Done.")
 
+# Analysis directory definitions
+FITS_PARENT = STORAGE_PARENT / "fits_images"
+DATASET_SUBDIR = "dataset"
+GENERATED_SUBDIR = "generated"
+PYBDSF_ANALYSIS_PARENT = STORAGE_PARENT / "pybdsf_catalogs"
+EXPORT_IMAGE_PARENT = FITS_PARENT / "exported"
+
+# Default bins sizes to sort data from the dataset into when converting h5 to fits
+DEFAULT_BINS_ARRAY = [ 10000 ];
+# Default parameters for fits file generation are placed here for ease of maintenance
+DEFAULT_GENERATION_ARGS = dict(
+    batch_size = 100,
+    n_samples = 3499,
+    timesteps = 25,
+    bin_size = 10000,
+    initial_count = -1
+)
 
 def cast_to_Path(path):
     """

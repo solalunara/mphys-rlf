@@ -1,21 +1,8 @@
-import os;
-import sys;
-from astropy.io import fits;
-import astropy.io;
 import astropy.stats;
-import astropy.io.fits
 import numpy as np;
 from pathlib import Path;
 import matplotlib.pyplot as plt;
 import logging;
-
-
-# Add the src directory to Python path so we can import modules
-src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, src_dir)
-
-import scripts.fits_viewer;
-from scripts.dataset_h5_to_fits import H5ToFitsConverter;
 from utils.logging import get_logger;
 
 class RecursiveFileAnalyzer:
@@ -58,7 +45,7 @@ class RecursiveFileAnalyzer:
             An unwrapped list of all files in path, or the path itself if it is a fits file
         """
         if path is None:
-            path = self.fits_input_dir / self.subdir;
+            path = self.path;
         if path.is_dir():
             unwrapped_sublist = [];
             for iter_file in path.iterdir():

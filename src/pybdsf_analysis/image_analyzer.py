@@ -1,22 +1,14 @@
-import sys
 import os
 import bdsf;
 from astropy.io import fits;
-from astropy.io.fits import ImageHDU;
 import bdsf.image
 import numpy as np;
-import matplotlib.pyplot as plt;
-import math;
 from pathlib import Path, PurePath;
 import multiprocessing;
 import multiprocessing.pool;
-
-# Add the src directory to Python path so we can import modules
-src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, src_dir)
-
+import utils.paths;
 import utils.logging;
-from recursive_file_analyzer import RecursiveFileAnalyzer;
+from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
 
 
 #Neccesary pool extention - PyBDSF uses daemon processes but only sometimes, and we want to batch the files themselves
@@ -101,9 +93,9 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
 
     def __init__( self, 
                   subdir: str | PurePath, 
-                  fits_input_dir: str | Path = "fits_images/",
-                  catalog_dir: str | Path = "pybdsf_catalogs/",
-                  img_dir: str | Path = "fits_images/exported/",
+                  fits_input_dir: str | Path = utils.paths.FITS_PARENT,
+                  catalog_dir: str | Path = utils.paths.PYBDSF_ANALYSIS_PARENT,
+                  img_dir: str | Path = utils.paths.EXPORT_IMAGE_PARENT,
                   write_catalog: bool = True,
                   export_images: list[ str ] | None = None,
                   **kwargs: dict ):
@@ -114,7 +106,8 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         self.fits_input_dir = fits_input_dir if isinstance( fits_input_dir, Path ) else Path( fits_input_dir );
         self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir );
         self.write_catalog = write_catalog;
-        self.export_images = export_images or [];
+        export_images = export_images or [];
+        self.export_images = export_images;
         self.logger = utils.logging.get_logger( self.__class__.__name__ );
 
         #Image Analyzer is a recursive analyzer for fits_input_dir/subdir, with additional utilities for catalog_dir and img_dir
@@ -248,7 +241,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             else:
                 self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) );
     
-    def SaveImageToFITS( self, image: np.ndarray, postfix: str ):
+    def SaveImageToFITS( self, image: np.ndarray, postfix: str, overwrite: bool = True ):
         """
         Save a numpy 2d array to a fits file under "[fits_input_dir]/[subdir]/"
 
@@ -260,6 +253,9 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         postfix : str
             postfix for the fits file. Can either be the name of the fits file (e.g. "example.fits") or the name
             and location under "[fits_input_dir]/[subdir]/" to store it in (e.g. "example_bin/example.fits")
+
+        overwrite : bool = True
+            Whether or not to overwrite the file if it already exists
         """
         hdu = fits.PrimaryHDU( image );
         hdu.header[ "CTYPE1" ] = "RA---TAN";
@@ -271,7 +267,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         hdul = fits.HDUList( [ hdu ] );
         outfile = self.fits_input_dir / self.subdir.joinpath( postfix );
         outfile.parent.mkdir( parents=True, exist_ok=True );
-        hdul.writeto( str( outfile ), overwrite=True );
+        hdul.writeto( str( outfile ), overwrite=overwrite );
 
     def AnalyzeImage( self, image: np.ndarray, postfix: str ):
         """
@@ -290,10 +286,3 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         """
         self.SaveImageToFITS( image, postfix );
         self.AnalyzeFITSAtPath( self.fits_input_dir / self.subdir / postfix );
-
-if __name__ == "__main__":
-    dataset_analyzer = ImageAnalyzer( "dataset", export_images=[ 'gaus_model', 'gaus_resid' ] );
-    generated_analyzer = ImageAnalyzer( "generated", export_images=[ 'gaus_model', 'gaus_resid' ] );
-
-    dataset_analyzer.AnalyzeAllFITSInInput();
-    generated_analyzer.AnalyzeAllFITSInInput();

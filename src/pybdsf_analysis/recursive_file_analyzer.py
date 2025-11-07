@@ -4,6 +4,7 @@ from pathlib import Path;
 import matplotlib.pyplot as plt;
 import logging;
 from utils.logging import get_logger;
+from tqdm import tqdm;
 
 class RecursiveFileAnalyzer:
     """
@@ -59,7 +60,7 @@ class RecursiveFileAnalyzer:
             return path;
         return None;
     
-    def ForEach( self, function, path: Path | str | None = None, ext: str | None = None ):
+    def ForEach( self, function, *exts: list[str] ):
         """
         A method to perform a generic function on all files within a directory given by path, or
         to read path as a file and perform the generic function on its contents, with optional file extension filtering
@@ -68,46 +69,21 @@ class RecursiveFileAnalyzer:
         ----------
         function : callable
             The function which will be called on each file in path recursively
-        path : Path | str | None = None
-            The path to the file root, or any subdirectory or file. If none defaults to file root dir.
-        ext : str | None = None
-            Only call the function and return values of the function on files that match this extension. If none match all files.
+        *exts : list[str]
+            Only call the function and return values of the function on files that match an element in this extension list. If empty match all files.
 
         Returns
         -------
-        If path is a directory
-            returns a list of the file return values within the path directory
-        If path is a file
-            returns the value of the function called with the file path as a parameter
+        list[ Any ]
+            returns a list of the file return values within the path directory self.path
         """
-        if path is None:
-            path = self.path;
-            self.counter = 0; #recursive func, only reset counter when called on top level
-        if path is not Path:
-            path = Path( path );
-
-        if path.is_dir():
-            return_values = [];
-            self.logger.debug( "Entering directory %s", path );
-            for sub_path in path.iterdir():
-                sub_return_values = self.ForEach( function, sub_path, ext );
-
-                #concatenate result lists so we end up with a big 1d array as a result
-                #and toss None values (which we get if the extension doesn't match, or the fn itself returns None)
-                # note - only files can return None, and files can only return one value, so we don't need None checking in array concat
-                if isinstance( sub_return_values, list ):
-                    return_values = return_values + sub_return_values;
-                elif sub_return_values is not None:
-                    return_values.append( sub_return_values );
-            return return_values;
-            
-        else:
-            if ( path.suffix == f".{ext}" ) or ( ext is None ):
-                return_value = function( path );
-                self.logger.debug( f"Reading file {self.counter}: {path}" );
-                self.counter += 1;
-                return return_value;
-            else: return;
+        files = self.GetUnwrappedList( None, *exts );
+        return_values = [];
+        for file in tqdm( files, desc='Operating...', total=len( files ) ):
+            return_values.append( function( file ) );
+            self.logger.debug( f"Reading file {self.counter}: {file}" );
+            self.counter += 1;
+        return return_values;
 
 class HistogramErrorDrawer:
     """

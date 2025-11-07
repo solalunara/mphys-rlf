@@ -47,8 +47,8 @@ if __name__ == "__main__":
 
     dataset_catalog_analyzer = RecursiveFileAnalyzer( utils.paths.FITS_PARENT / utils.paths.DATASET_SUBDIR, log_level );
     generated_catalog_analyzer = RecursiveFileAnalyzer( utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR, log_level );
-    dataset_data = np.array( dataset_catalog_analyzer.FMR() );
-    generated_data = np.array( generated_catalog_analyzer.FMR() );
+    dataset_data = np.array( dataset_catalog_analyzer.ForEach( FMR, 'log' ) );
+    generated_data = np.array( generated_catalog_analyzer.ForEach( FMR, 'log' ) );
 
     resolution = 1000;
     fig = plt.figure( figsize=(int(resolution*3/100), int(resolution/100)) );

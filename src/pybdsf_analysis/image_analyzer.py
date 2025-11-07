@@ -46,14 +46,14 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         and images are written to "[img_dir]/[subdir]/[img_type]/\*\*.fits",
         where "\*\*" implies the files are recursively searched for, allowing the data to be segmented into folder bins
 
-    fits_input_dir : str | Path = "fits_images/"
+    fits_input_dir : str | Path = utils.paths.FITS_PARENT
         Root directory of all fits input files. Images are taken from "[fits_input_dir]/[subdir]/\*\*.fits",
         where the postfix after subdir is used as the postfix for img_dir and catalog_dir
 
-    catalog_dir : str | Path = "pybdsf_catalogs/"
+    catalog_dir : str | Path = utils.paths.PYBDSF_ANALYSIS_PARENT
         Root directory of all catalogs. Catalogs are written to "[catalog_dir]/[subdir]/\*\*.fits"
 
-    img_dir : str | Path = "fits_images/reconstructed"
+    img_dir : str | Path = utils.paths.EXPORT_IMAGE_PARENT
         Root directory of all images exported by PyBDSF. Images are written to "[img_dir]/[subdir]/[img_type]/\*\*.fits"
 
     write_catalog : bool = True

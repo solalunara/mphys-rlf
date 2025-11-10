@@ -9,7 +9,8 @@ import multiprocessing.pool;
 import utils.paths;
 import utils.logging;
 from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
-
+import logging;
+from tqdm import tqdm;
 
 #Neccesary pool extention - PyBDSF uses daemon processes but only sometimes, and we want to batch the files themselves
 #Courtesy of https://stackoverflow.com/questions/52948447/error-group-argument-must-be-none-for-now-in-multiprocessing-pool
@@ -98,6 +99,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                   img_dir: str | Path = utils.paths.EXPORT_IMAGE_PARENT,
                   write_catalog: bool = True,
                   export_images: list[ str ] | None = None,
+                  log_level: int = logging.INFO,
                   **kwargs: dict ):
 
         #Ensure all types are paths
@@ -108,10 +110,9 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         self.write_catalog = write_catalog;
         export_images = export_images or [];
         self.export_images = export_images;
-        self.logger = utils.logging.get_logger( self.__class__.__name__ );
 
         #Image Analyzer is a recursive analyzer for fits_input_dir/subdir, with additional utilities for catalog_dir and img_dir
-        super().__init__( self.fits_input_dir / self.subdir );
+        super().__init__( self.fits_input_dir / self.subdir, log_level );
 
         self.process_args = dict();
         self.catalog_args = dict();
@@ -156,7 +157,25 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         #Set process arg defaults to project defaults if nothing passed
         for key, val in ImageAnalyzer.LOFAR_process_arg_defaults.items():
             self.process_args[ key[ len( 'process_' ): ] ] = self.process_args.get( key[ len( 'process_' ): ], val );
- 
+    
+    def GetPixelValues( self ):
+        """
+        A simple function to get a flattened array of all pixel values of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
+
+        Returns
+        -------
+        np.ndarray
+            a flattened array of pixel values
+        """
+        input_subdir = self.fits_input_dir / self.subdir;
+        files = self.GetUnwrappedList( input_subdir, 'fits' );
+        value_list = np.empty( (len( files ), 80, 80) );
+        i = 0;
+        for file in tqdm( files, desc='Collecting Pixel Values...' ):
+            with fits.open( str( file ) ) as hdul:
+                value_list[ i ] = hdul[ 0 ].data;
+            i += 1;
+        return value_list.ravel();
     
     def AnalyzeAllFITSInInput( self ):
         """

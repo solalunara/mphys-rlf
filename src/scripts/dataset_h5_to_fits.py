@@ -1,4 +1,3 @@
-import __init__; #top level __init__ import required if not running as module
 import sys
 from astropy.io import fits;
 from astropy.io.fits import ImageHDU;
@@ -9,6 +8,7 @@ import math;
 from pathlib import Path, PurePath;
 import shutil;
 import utils.paths; #will resolve files automatically
+from tqdm import tqdm;
 
 def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list[int] ):
     """
@@ -39,7 +39,7 @@ def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list
     with h5py.File( str( lofar_data_h5 ), 'r' ) as h5:
         images = h5[ 'images' ];
 
-        for i in range( images.shape[ 0 ] ):
+        for i in tqdm( range( images.shape[ 0 ] ) ):
             image = images[ i ];
 
             # the images in the dataset *are* selected by the process in the paper but *are not* scaled 0-1
@@ -52,8 +52,8 @@ def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list
 
 
             hdu = fits.PrimaryHDU( image );
-            hdu.header[ "CTYPE1" ] = "RA---TAN";
-            hdu.header[ "CTYPE2" ] = "DEC--TAN";
+            hdu.header[ "CTYPE1" ] = "RA---SIN";
+            hdu.header[ "CTYPE2" ] = "DEC--SIN";
             hdu.header[ "CDELT1" ] = 1.5 * 0.00027778;
             hdu.header[ "CDELT2" ] = 1.5 * 0.00027778;
             hdu.header[ "CUNIT1" ] = "deg";

@@ -18,6 +18,7 @@ image_data/
 model_results/
 fits_images/
 pybdsf_catalogs/
+dr2_cutouts/
 
 # Temporary files
 *.log

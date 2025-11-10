@@ -1,4 +1,3 @@
-import __init__;
 import numpy as np;
 import math;
 import argparse;

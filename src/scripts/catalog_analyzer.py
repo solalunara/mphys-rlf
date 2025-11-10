@@ -1,4 +1,3 @@
-import __init__;
 from astropy.io import fits;
 import numpy as np;
 from pathlib import Path;

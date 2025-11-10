@@ -46,6 +46,7 @@ class FitsViewer:
                          resolution: int = 1000,
                          num_rows: int = 1,
                          outfile: str | None = None,
+                         upper_bound: float | None = None,
                          left = 0.05,
                          right = 0.95,
                          bottom = 0.1,
@@ -96,7 +97,8 @@ class FitsViewer:
             if titles[ i ] is not None:
                 axes[ -1 ].set_title( titles[ i ] );
             img = axes[ -1 ].imshow( self.data[ i ][ 0 ] );
-            img.set_clim( 0, 1 );
+            if upper_bound:
+                img.set_clim( 0, upper_bound );
         if outfile is not None:
             plt.savefig( outfile )
         plt.show();
@@ -105,7 +107,7 @@ class FitsViewer:
 if __name__ == "__main__":
     # Display any fits files passed as arguments
     parser = argparse.ArgumentParser( prog='python fits_viewer.py', 
-                                      usage='%(prog)s [-h|--help] [--rows ROWS] [--resolution RESOLUTION] [-o|--outfile OUTFILE] [--left|--right|--top|--bottom|--wspace|--hspace VALUE] [FILES]',
+                                      usage='%(prog)s [-h|--help] [--rows ROWS] [--resolution RESOLUTION] [-o|--outfile OUTFILE] [--lower-bound|--upper-bound VALUE] [--left|--right|--top|--bottom|--wspace|--hspace VALUE] [FILES]',
                                       description='A program to visualize FITS images passed as arguments' );
     parser.add_argument( "--rows", help="How many rows to display the fits images in, default 1", type=int, default=1 );
     parser.add_argument( "--resolution", help="Resolution to display the image at, default 1000", type=int, default=1000 );
@@ -116,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument( "--bottom", help="Gridspec bottom parameter default 0.1", type=float, default=0.1 );
     parser.add_argument( "--wspace", help="Gridspec wspace parameter default 0.5", type=float, default=0.5 );
     parser.add_argument( "--hspace", help="Gridspec hspace parameter default 0.5", type=float, default=0.5 );
+    parser.add_argument( "--upper-bound", help="Specify upper bound on images, by default no bound", type=float, default=None );
     parser.add_argument( "FILES", nargs='*' );
     args = parser.parse_args();
 
@@ -130,6 +133,7 @@ if __name__ == "__main__":
                                                        resolution=args.resolution, 
                                                        num_rows=args.rows, 
                                                        outfile=args.outfile,
+                                                       upper_bound=args.upper_bound,
                                                        left=args.left,
                                                        right=args.right,
                                                        bottom=args.bottom,

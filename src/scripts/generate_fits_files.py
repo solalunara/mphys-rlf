@@ -5,6 +5,7 @@ import model.sampler;
 from pybdsf_analysis.image_analyzer import ImageAnalyzer, RecursiveFileAnalyzer;
 import utils.paths;
 from utils.paths import DEFAULT_GENERATION_ARGS;
+import torch;
 
 #We want to run the following script regardless of if we're the main or being imported
 #thus importing this script ensures data preparation, similar to importing utils.paths
@@ -29,32 +30,31 @@ if args.initial_count >= 0:
     initial_count = args.initial_count;
 
 #Do a sampling loop of batch_size samples and save them to the disk as they're generated, until we reach n_samples
-model_sampler = model.sampler.Sampler();
+model_sampler = model.sampler.Sampler( n_samples=args.batch_size, timesteps=args.timesteps, distribute_model=(not args.use_cpu) );
+fpeak_model_dist = model_sampler.get_fpeak_model_dist( str( utils.paths.LOFAR_DATA_PATH ) );
+#labels = model_sampler.get_labels();
 samplecount = initial_count;
 image_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR );
 while samplecount < args.n_samples:
-    samples = model_sampler.quick_sample(
-        utils.paths.LOFAR_MODEL_NAME,
-        distribute_model=(not args.use_cpu),
-        n_samples=args.batch_size,
-        timesteps=args.timesteps
-    );
+    fpeak_model_values = torch.from_numpy( fpeak_model_dist( args.batch_size )[ :, np.newaxis ] );
+    samples = model_sampler.quick_sample( utils.paths.LOFAR_MODEL_NAME, labels=fpeak_model_values );
 
     for i in range( samples.shape[ 0 ] ):
         image = samples[ i, -1, 0, :, : ];
 
         # the images in the dataset *are* selected by the process in the paper but *are not* scaled 0-1
         # here we do that scaling, if we so choose
+        im_max = np.max( image );
         if not args.preserve_values:
-            im_max = np.max( image );
             im_min = np.min( image );
             if im_min < 0:
                 image = np.where( image > 0, image, 0 );
             image = ( image - im_min ) / ( im_max - im_min );
+        fscaled = (im_max**(-0.23) - 1)/(-0.23);
 
         lower_bound = int( math.floor( ( samplecount + i ) / args.bin_size ) * args.bin_size );
         upper_bound = int( math.ceil( ( samplecount + i + 1 ) / args.bin_size ) * args.bin_size ) - 1;
         postfix = f"{lower_bound}-{upper_bound}/image{samplecount+i}.fits";
-        image_analyzer.SaveImageToFITS( image, postfix );
+        image_analyzer.SaveImageToFITS( image, postfix, fscaled );
 
     samplecount += args.batch_size;

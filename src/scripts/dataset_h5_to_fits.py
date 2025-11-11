@@ -58,7 +58,7 @@ def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list
             hdu.header[ "CDELT2" ] = 1.5 * 0.00027778;
             hdu.header[ "CUNIT1" ] = "deg";
             hdu.header[ "CUNIT2" ] = "deg";
-            hdu.header[ "PKFLUX" ] = im_max;
+            hdu.header[ "FXSCLD" ] = (im_max**(-0.23) - 1)/(-0.23);
             hdul = fits.HDUList( [ hdu ] );
 
             #Create bins based on bin_sizes

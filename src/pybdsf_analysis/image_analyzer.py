@@ -160,12 +160,12 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
     
     def GetPixelValues( self ):
         """
-        A simple function to get a flattened array of all pixel values of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
+        A simple function to get all pixel values of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
 
         Returns
         -------
         np.ndarray
-            a flattened array of pixel values
+            an array of pixel values of shape (len(files), 80, 80)
         """
         input_subdir = self.fits_input_dir / self.subdir;
         files = self.GetUnwrappedList( input_subdir, 'fits' );
@@ -175,7 +175,27 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             with fits.open( str( file ) ) as hdul:
                 value_list[ i ] = hdul[ 0 ].data;
             i += 1;
-        return value_list.ravel();
+        return value_list;
+
+    def GetScaledFlux( self ):
+        """
+        Get the scaled fluxes of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
+
+        Returns
+        -------
+        np.ndarray
+            an array of scaled fluxes of shape (len(files))
+        """
+        input_subdir = self.fits_input_dir / self.subdir;
+        files = self.GetUnwrappedList( input_subdir, 'fits' );
+        value_list = np.empty( len( files ) );
+        i = 0;
+        for file in tqdm( files, desc='Collecting Scaled Fluxes...' ):
+            with fits.open( str( file ) ) as hdul:
+                value_list[ i ] = hdul[ 0 ].header[ 'FXSCLD' ];
+            i += 1;
+        return value_list;
+
     
     def AnalyzeAllFITSInInput( self ):
         """
@@ -260,7 +280,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             else:
                 self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) );
     
-    def SaveImageToFITS( self, image: np.ndarray, postfix: str, overwrite: bool = True ):
+    def SaveImageToFITS( self, image: np.ndarray, postfix: str, fscaled: float, overwrite: bool = True ):
         """
         Save a numpy 2d array to a fits file under "[fits_input_dir]/[subdir]/"
 
@@ -273,16 +293,20 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             postfix for the fits file. Can either be the name of the fits file (e.g. "example.fits") or the name
             and location under "[fits_input_dir]/[subdir]/" to store it in (e.g. "example_bin/example.fits")
 
+        fscaled : float
+            the scaled max flux of the image, will be saved in a fits header
+
         overwrite : bool = True
             Whether or not to overwrite the file if it already exists
         """
         hdu = fits.PrimaryHDU( image );
-        hdu.header[ "CTYPE1" ] = "RA---TAN";
-        hdu.header[ "CTYPE2" ] = "DEC--TAN";
+        hdu.header[ "CTYPE1" ] = "RA---SIN";
+        hdu.header[ "CTYPE2" ] = "DEC--SIN";
         hdu.header[ "CDELT1" ] = 1.5 * 0.00027778;
         hdu.header[ "CDELT2" ] = 1.5 * 0.00027778;
         hdu.header[ "CUNIT1" ] = "deg";
         hdu.header[ "CUNIT2" ] = "deg";
+        hdu.header[ "FXSCLD" ] = fscaled;
         hdul = fits.HDUList( [ hdu ] );
         outfile = self.fits_input_dir / self.subdir.joinpath( postfix );
         outfile.parent.mkdir( parents=True, exist_ok=True );

@@ -50,8 +50,8 @@ if __name__ == "__main__":
     dataset_data = np.array( dataset_catalog_analyzer.ForEach( FMR, 'log' ) );
     generated_data = np.array( generated_catalog_analyzer.ForEach( FMR, 'log' ) );
 
-    dataset_pix_vals = dataset_catalog_analyzer.GetPixelValues();
-    generated_pix_vals = generated_catalog_analyzer.GetPixelValues();
+    dataset_pix_vals = dataset_catalog_analyzer.GetPixelValues().ravel();
+    generated_pix_vals = generated_catalog_analyzer.GetPixelValues().ravel();
 
     resolution = 1000;
     fig = plt.figure( figsize=(int(resolution*4/100), int(resolution/100)) );

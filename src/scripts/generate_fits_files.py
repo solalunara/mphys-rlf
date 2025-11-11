@@ -6,6 +6,7 @@ from pybdsf_analysis.image_analyzer import ImageAnalyzer, RecursiveFileAnalyzer;
 import utils.paths;
 from utils.paths import DEFAULT_GENERATION_ARGS;
 import torch;
+import os;
 
 #We want to run the following script regardless of if we're the main or being imported
 #thus importing this script ensures data preparation, similar to importing utils.paths
@@ -33,11 +34,22 @@ if args.initial_count >= 0:
 model_sampler = model.sampler.Sampler( n_samples=args.batch_size, timesteps=args.timesteps, distribute_model=(not args.use_cpu) );
 fpeak_model_dist = model_sampler.get_fpeak_model_dist( str( utils.paths.LOFAR_DATA_PATH ) );
 #labels = model_sampler.get_labels();
-samplecount = initial_count;
+
+#SLURM distribution w/ batching
+task_count = int( os.environ.get( "SLURM_ARRAY_TASK_COUNT", 1 ) );
+task_id = int( os.environ.get( "SLURM_ARRAY_TASK_ID", 0 ) );
+n_samples = args.n_samples - initial_count;
+bin_start = int( task_id / task_count * n_samples ) + initial_count;
+bin_end = int( ( task_id + 1 ) / task_count * n_samples ) + initial_count;
+if task_id + 1 == task_count:
+    bin_end = n_samples + initial_count; #just in case the float->int conversion is messy
+
+samplecount = bin_start;
 image_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR );
-while samplecount < args.n_samples:
-    fpeak_model_values = torch.from_numpy( fpeak_model_dist( args.batch_size )[ :, np.newaxis ] );
-    samples = model_sampler.quick_sample( utils.paths.LOFAR_MODEL_NAME, labels=fpeak_model_values );
+while samplecount < bin_end:
+    batch_size = max( args.batch_size, bin_end - samplecount ); #to not double-generate at the borders
+    fpeak_model_values = torch.from_numpy( fpeak_model_dist( batch_size )[ :, np.newaxis ] );
+    samples = model_sampler.quick_sample( utils.paths.LOFAR_MODEL_NAME, labels=fpeak_model_values, n_samples=batch_size );
 
     for i in range( samples.shape[ 0 ] ):
         image = samples[ i, -1, 0, :, : ];

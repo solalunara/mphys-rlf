@@ -6,7 +6,7 @@ from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer, Histo
 from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 import argparse;
 import logging;
-import analyze_gen_and_data; #This will do all dataset prep automatically
+import scripts.analyze_gen_and_data; #This will do all dataset prep automatically
 import utils.paths;
 
 def FMR( path: Path ):

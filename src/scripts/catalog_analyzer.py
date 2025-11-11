@@ -6,7 +6,7 @@ import utils.paths;
 from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer, HistogramErrorDrawer;
 import argparse;
 import logging;
-import analyze_gen_and_data; #This will do all dataset prep automatically
+import scripts.analyze_gen_and_data; #This will do all dataset prep automatically
 
 def FluxCounter( path: Path ):
     """

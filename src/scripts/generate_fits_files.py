@@ -5,8 +5,11 @@ import model.sampler;
 from pybdsf_analysis.image_analyzer import ImageAnalyzer, RecursiveFileAnalyzer;
 import utils.paths;
 from utils.paths import DEFAULT_GENERATION_ARGS;
+import utils.logging;
 import torch;
 import os;
+
+logger = utils.logging.get_logger( __name__ );
 
 #We want to run the following script regardless of if we're the main or being imported
 #thus importing this script ensures data preparation, similar to importing utils.paths
@@ -32,8 +35,12 @@ if args.initial_count >= 0:
 
 #Do a sampling loop of batch_size samples and save them to the disk as they're generated, until we reach n_samples
 model_sampler = model.sampler.Sampler( n_samples=args.batch_size, timesteps=args.timesteps, distribute_model=(not args.use_cpu) );
-fpeak_model_dist = model_sampler.get_fpeak_model_dist( str( utils.paths.LOFAR_DATA_PATH ) );
-#labels = model_sampler.get_labels();
+fpeak_model_dist = None;
+while fpeak_model_dist == None:
+    try:
+        fpeak_model_dist = model_sampler.get_fpeak_model_dist( str( utils.paths.LOFAR_DATA_PATH ) );
+    except:
+        logger.info( 'Could not lock file - probably in use by another array. Trying again...' );
 
 #SLURM distribution w/ batching
 task_count = int( os.environ.get( "SLURM_ARRAY_TASK_COUNT", 1 ) );

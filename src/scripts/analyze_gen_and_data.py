@@ -1,5 +1,5 @@
-import generate_fits_files; #generated prep
-import dataset_h5_to_fits; #dataset prep
+import scripts.generate_fits_files; #generated prep
+import scripts.dataset_h5_to_fits; #dataset prep
 import utils.paths;
 from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 

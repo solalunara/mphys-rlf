@@ -56,13 +56,14 @@ while samplecount < bin_end:
 
         # the images in the dataset *are* selected by the process in the paper but *are not* scaled 0-1
         # here we do that scaling, if we so choose
-        im_max = np.max( image );
         if not args.preserve_values:
+            im_max = np.max( image );
             im_min = np.min( image );
             if im_min < 0:
                 image = np.where( image > 0, image, 0 );
             image = ( image - im_min ) / ( im_max - im_min );
-        fscaled = (im_max**(-0.23) - 1)/(-0.23);
+
+        fscaled = fpeak_model_values[ i ];
 
         lower_bound = int( math.floor( ( samplecount + i ) / args.bin_size ) * args.bin_size );
         upper_bound = int( math.ceil( ( samplecount + i + 1 ) / args.bin_size ) * args.bin_size ) - 1;

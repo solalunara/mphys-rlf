@@ -6,12 +6,12 @@ BINS_ARRAY = [ 10000 ];
 
 # Default parameters for fits file generation are placed here for ease of maintenance
 FITS_SAMPLING_ARGS = dict(
-    batch_size = 10,
-    n_samples = 4,
+    batch_size = 100,
+    n_samples = 99,
     timesteps = 25,
     bin_size = 10000,
     initial_count = -1,
-    use_cpu=True
+    use_cpu=False
 );
 
 # Default number of fits images to convert

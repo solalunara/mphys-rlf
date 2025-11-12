@@ -1,3 +1,7 @@
+# This file was created by Ashley and Luna. It provides a complete application that can be used to sample
+# images according to the LOFAR model with certian parameters, and it provides a function that can be used
+# to access that application through other files. This application can be distributed across multiple nodes.
+
 import numpy as np;
 import math;
 import argparse;
@@ -23,7 +27,7 @@ def get_h5_maxvals( outfile, infile ):
 
 
 def sample( **parameter_args ):
-    files.sampling.prepare_for_sampling()
+    files.sampling.single_node_prepare_for_sampling();
 
     logger = utils.logging.get_logger( __name__, logging.DEBUG );
 

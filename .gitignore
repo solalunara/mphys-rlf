@@ -17,8 +17,10 @@ analysis_results/
 image_data/
 model_results/
 fits_images*/
+maxvals*/
 pybdsf_catalogs*/
 dr2_cutouts*/
+pybdsf*/
 
 # Temporary files
 *.log

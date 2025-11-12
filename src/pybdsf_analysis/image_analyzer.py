@@ -7,10 +7,12 @@ from pathlib import Path, PurePath;
 import multiprocessing;
 import multiprocessing.pool;
 import utils.paths;
+from utils.paths import cast_to_Path;
 import utils.logging;
 from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
 import logging;
 from tqdm import tqdm;
+import files.paths;
 
 #Neccesary pool extention - PyBDSF uses daemon processes but only sometimes, and we want to batch the files themselves
 #Courtesy of https://stackoverflow.com/questions/52948447/error-group-argument-must-be-none-for-now-in-multiprocessing-pool
@@ -95,17 +97,18 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
     def __init__( self, 
                   subdir: str | PurePath, 
                   fits_input_dir: str | Path = utils.paths.FITS_PARENT,
-                  catalog_dir: str | Path = utils.paths.PYBDSF_ANALYSIS_PARENT,
-                  img_dir: str | Path = utils.paths.EXPORT_IMAGE_PARENT,
+                  log_dir: str | Path = utils.paths.PYBDSF_LOG_PARENT,
+                  catalog_dir: str | Path = utils.paths.PYBDSF_CATALOG_PARENT,
+                  img_dir: str | Path = utils.paths.PYBDSF_EXPORT_IMAGE_PARENT,
                   write_catalog: bool = True,
                   export_images: list[ str ] | None = None,
                   log_level: int = logging.INFO,
                   **kwargs: dict ):
-
         #Ensure all types are paths
-        self.catalog_dir = catalog_dir if isinstance( catalog_dir, Path ) else Path( catalog_dir );
-        self.img_dir = img_dir if isinstance( img_dir, Path ) else Path( img_dir );
-        self.fits_input_dir = fits_input_dir if isinstance( fits_input_dir, Path ) else Path( fits_input_dir );
+        self.log_dir = cast_to_Path( log_dir );
+        self.catalog_dir = cast_to_Path( catalog_dir );
+        self.img_dir = cast_to_Path( img_dir );
+        self.fits_input_dir = cast_to_Path( fits_input_dir );
         self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir );
         self.write_catalog = write_catalog;
         export_images = export_images or [];
@@ -267,6 +270,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 #Something to do, process the image
                 img: bdsf.image.Image = bdsf.process_image(
                     str( path ),
+                    outdir=(self.log_dir / self.subdir.joinpath( *postfix ).parent),
                     **self.process_args
                 );
                 for img_type in export_images:

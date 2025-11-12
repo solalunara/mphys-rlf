@@ -1,4 +1,4 @@
-import scripts.analyze_gen_and_data; #This will do all dataset prep automatically
+import scripts.pybdsf_run_analysis;
 import utils.paths;
 from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 import numpy as np;

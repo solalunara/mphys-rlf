@@ -6,7 +6,7 @@ import utils.paths;
 from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer, HistogramErrorDrawer;
 import argparse;
 import logging;
-import scripts.analyze_gen_and_data; #This will do all dataset prep automatically
+import scripts.pybdsf_run_analysis;
 
 def FluxCounter( path: Path ):
     """
@@ -33,6 +33,8 @@ def FluxCounter( path: Path ):
 
 
 if __name__ == "__main__":
+    scripts.pybdsf_run_analysis.analyze_everything();
+
     parser = argparse.ArgumentParser();
     parser.add_argument( "-v", "--verbose", help="Print a message to the console every time a file is read or a directory is entered", action='store_true' );
     args = parser.parse_args();

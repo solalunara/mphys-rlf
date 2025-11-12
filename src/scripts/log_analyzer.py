@@ -6,7 +6,7 @@ from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer, Histo
 from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 import argparse;
 import logging;
-import scripts.analyze_gen_and_data; #This will do all dataset prep automatically
+import scripts.pybdsf_run_analysis;
 import utils.paths;
 
 def FMR( path: Path ):
@@ -38,6 +38,8 @@ def FMR( path: Path ):
 
 
 if __name__ == "__main__":
+    scripts.pybdsf_run_analysis.analyze_everything();
+
     parser = argparse.ArgumentParser();
     parser.add_argument( "-v", "--verbose", help="Print a message to the console every time a file is read or a directory is entered", action='store_true' );
     args = parser.parse_args();
@@ -45,13 +47,15 @@ if __name__ == "__main__":
 
     log_level = logging.DEBUG if verbose else logging.INFO;
 
-    dataset_catalog_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR, log_level=log_level );
-    generated_catalog_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR, log_level=log_level );
-    dataset_data = np.array( dataset_catalog_analyzer.ForEach( FMR, 'log' ) );
-    generated_data = np.array( generated_catalog_analyzer.ForEach( FMR, 'log' ) );
+    dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR, log_level=log_level );
+    generated_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR, log_level=log_level );
+    dataset_log_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_LOG_PARENT / utils.paths.DATASET_SUBDIR );
+    generated_log_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_LOG_PARENT / utils.paths.GENERATED_SUBDIR );
+    dataset_data = np.array( dataset_log_analyzer.ForEach( FMR, 'log' ) );
+    generated_data = np.array( generated_log_analyzer.ForEach( FMR, 'log' ) );
 
-    dataset_pix_vals = dataset_catalog_analyzer.GetPixelValues().ravel();
-    generated_pix_vals = generated_catalog_analyzer.GetPixelValues().ravel();
+    dataset_pix_vals = dataset_analyzer.GetPixelValues().ravel();
+    generated_pix_vals = generated_analyzer.GetPixelValues().ravel();
 
     resolution = 1000;
     fig = plt.figure( figsize=(int(resolution*4/100), int(resolution/100)) );

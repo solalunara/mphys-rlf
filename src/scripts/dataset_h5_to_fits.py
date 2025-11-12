@@ -7,10 +7,14 @@ import h5py;
 import math;
 from pathlib import Path, PurePath;
 import shutil;
-import utils.paths; #will resolve files automatically
+import utils.parameters;
+import utils.paths;
 from tqdm import tqdm;
+import files.dataset;
+from files.dataset import LOFAR_DATA_PATH;
+from utils.distributed import DistributedUtils;
 
-def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list[int] ):
+def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
     """
     A method to convert the LOFAR h5 dataset used in this project into fits files. Outputs fits files to 
     fits_output_dir, and groups the images into directories by descending sizes.
@@ -21,8 +25,10 @@ def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list
         The directory to read the LOFAR data from
     fits_output_dir: Path
         The directory to output the FITS files to
-    *bin_sizes : list[ int ]
-        Directory bins to sort the images into for ease of use. Defaults to [] which is no bins.
+    cutoff : int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF
+        The number of images to convert and export. Default behaviour in utils.parameters.LOFAR_FITS_COUNT_CUTOFF
+    bin_sizes : list[ int ] | None = None
+        Directory bins to sort the images into for ease of use. Defaults to the value in utils.parameters
 
         For example: bin_sizes array of [10000, 1000, 3000] would be sorted to [10000, 3000, 1000] and files would be stored as
 
@@ -35,11 +41,19 @@ def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list
         As can be seen with 9150, bins are funneled such that the upper bound of an inner bin is always less than or equal to the upper bound of all
         its outer bins, and the opposite with the lower bound of an inner bin.
     """
+    files.dataset.download_dataset();
+
+    if bin_sizes is None:
+        bin_sizes = utils.parameters.BINS_ARRAY;
+
     bin_sizes = sorted( bin_sizes, reverse=True );
     with h5py.File( str( lofar_data_h5 ), 'r' ) as h5:
         images = h5[ 'images' ];
+    
+        images_len = images.shape[ 0 ];
+        num_to_convert = min( cutoff, images_len ) if cutoff is not None else images_len;
 
-        for i in tqdm( range( images.shape[ 0 ] ) ):
+        for i in tqdm( range( num_to_convert ) ):
             image = images[ i ];
 
             # the images in the dataset *are* selected by the process in the paper but *are not* scaled 0-1
@@ -87,41 +101,23 @@ def ConvertLOFARh5( lofar_data_h5: Path, fits_output_dir: Path, *bin_sizes: list
                 filename.parent.mkdir( parents=True, exist_ok=True ); #ensure path exists
                 hdul.writeto( filename, overwrite=True );
 
-def RemakeFITSImageDirectory( *bin_sizes: list[ int ] ):
-    """
-    Similar to EnsureFITSImagesExist but forcefully remakes the directory to ensure compliance with bin_sizes
+def single_node_convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[int] | None = None ):
+    du = DistributedUtils();
+    du.single_task_only_forcewait( 'convert_LOFAR_h5_to_fits', convert_LOFAR_h5_to_fits, 0, lofar_data_h5, fits_output_dir, cutoff, bin_sizes );
 
-    Parameters
-    ----------
-    *bin_sizes : list[ int ]
-        Directory bins to sort the images into for ease of use. Defaults to [] which is no bins.
-        Is only used in the case where the dataset folder does not already exist. Compliance with bin structure is not checked for.
-
-        For example: bin_sizes array of [10000, 1000, 3000] would be sorted to [10000, 3000, 1000] and files would be stored as
-
-        00010 -> fits_output_dir/0-9999/0-2999/0-999/image10.fits
-
-        09150 -> fits_output_dir/0-9999/9000-9999/9100-9199/image9150.fits
-
-        12120 -> fits_output_dir/10000-19999/12000-14999/12100-12199/image12120.fits
-
-        As can be seen with 9150, bins are funneled such that the upper bound of an inner bin is always less than or equal to the upper bound of all
-        its outer bins, and the opposite with the lower bound of an inner bin.
-    """
-    fits_dataset_folder = utils.paths.FITS_PARENT / utils.paths.DATASET_SUBDIR;
-    if fits_dataset_folder.exists():
-        shutil.rmtree( fits_dataset_folder );
-
-    ConvertLOFARh5( utils.paths.LOFAR_DATA_PATH, fits_dataset_folder, *bin_sizes );
-
-def EnsureFITSImagesExist( *bin_sizes: list[ int ] ):
+def validate_LOFAR_fits_images( clean_directory: bool, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
     """
     Ensure FITS images from LOFAR exist in accordance with paths laid out in utils.paths
 
     Parameters
     ----------
-    *bin_sizes : list[ int ]
-        Directory bins to sort the images into for ease of use. Defaults to [] which is no bins.
+    clean_directory : bool
+        Whether or not to clean out the fits images directory to ensure bin compliance
+    cutoff : int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF
+        The optional value to cut off conversion at, in terms of number of images converted
+
+    bin_sizes : list[ int ] = None
+        Directory bins to sort the images into for ease of use. Defaults to utils.parameters.BINS_ARRAY
         Is only used in the case where the dataset folder does not already exist. Compliance with bin structure is not checked for.
 
         For example: bin_sizes array of [10000, 1000, 3000] would be sorted to [10000, 3000, 1000] and files would be stored as
@@ -137,9 +133,16 @@ def EnsureFITSImagesExist( *bin_sizes: list[ int ] ):
     """
     fits_dataset_folder = utils.paths.FITS_PARENT / utils.paths.DATASET_SUBDIR;
     if fits_dataset_folder.exists():
-        return;
+        if clean_directory:
+            shutil.rmtree( fits_dataset_folder );
+        else:
+            return;
 
-    ConvertLOFARh5( utils.paths.LOFAR_DATA_PATH, fits_dataset_folder, *bin_sizes );
+    convert_LOFAR_h5_to_fits( LOFAR_DATA_PATH, fits_dataset_folder, cutoff, bin_sizes );
+
+def single_node_validate_LOFAR_fits_images( clean_directory: bool, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
+    du = DistributedUtils();
+    du.single_task_only_forcewait( 'validate_LOFAR_fits_images', validate_LOFAR_fits_images, 0, clean_directory, cutoff, bin_sizes );
 
 
 
@@ -148,7 +151,6 @@ if __name__ == "__main__":
     bin_sizes = [];
     for arg in sys.argv[ 1: ]:
         bin_sizes.append( int( arg ) );
-    RemakeFITSImageDirectory( *bin_sizes );
-else:
-    # If we're being imported, just make sure the FITS image directory exists, and recreate it if it doesn't
-    EnsureFITSImagesExist( *utils.paths.DEFAULT_BINS_ARRAY );
+    if len( bin_sizes ) == 0:
+        bin_sizes = utils.parameters.BINS_ARRAY;
+    single_node_validate_LOFAR_fits_images( True, bin_sizes=bin_sizes );

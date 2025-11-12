@@ -364,14 +364,17 @@ class Sampler:
 
         return imgs
 
-    def get_fpeak_model_dist(self, train_set_path):
+    def get_fpeak_model_dist(self, train_set_path: str | None, max_vals: np.ndarray | None = None ):
         """
         Generate the model distribution of peak flux values from a training set.
 
         Parameters
         ----------
-        train_set_path : Path or str
-            The path to the training set file.
+        train_set_path : Path or str or None
+            The path to the training set file. If none, read max values from max_vals
+
+        max_vals : np.ndarray or none
+            The array to read max_vals from if train_set_path is None.
 
         Returns
         -------
@@ -396,8 +399,9 @@ class Sampler:
         >>> samples = model_dist(1000)
         """
 
-        with h5py.File(train_set_path, "r") as f:
-            max_vals = np.max(f["images"][:], axis=(1, 2))
+        if train_set_path is not None:
+            with h5py.File(train_set_path, "r") as f:
+                max_vals = np.max(f["images"][:], axis=(1, 2))
 
         pt = PowerTransformer(method="box-cox")
         pt.fit(max_vals.reshape(-1, 1))

@@ -17,5 +17,5 @@ echo ">>>activating venv"
 source /share/nas2_3/lgreen/mphys-rlf/.venv/bin/activate
 echo ">>>starting program"
 export N_CPUS=$SLURM_CPUS_PER_TASK
-python /share/nas2_3/lgreen/mphys-rlf/src/scripts/log_analyzer.py
+python /share/nas2_3/lgreen/mphys-rlf/src/scripts/pybdsf_run_analysis.py
 

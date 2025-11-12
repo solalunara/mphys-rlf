@@ -14,9 +14,9 @@ import logging;
 def wait_until( somepredicate, timeout, logger, waiting_on_array: int, taskname: str, period=0.25, *args, **kwargs ):
     mustend = time.time() + timeout
     while time.time() < mustend:
-        logger.debug( f'Waiting on array {waiting_on_array} to complete {taskname}' );
+        logger.debug( f'Waiting on array {waiting_on_array} to complete {taskname}: time={time.time()}' );
         if somepredicate( *args, **kwargs ): 
-            logger.debug( f'Array {waiting_on_array} has completed {taskname}' );
+            logger.debug( f'Array {waiting_on_array} has completed {taskname}: time={time.time()}' );
             return True
         time.sleep(period)
     return False
@@ -72,7 +72,9 @@ class DistributedUtils:
                 os.environ[ f'TASK_{taskname}_COMPLETED' ] = 'True';
             else:
                 # Truth value tells us whether or not wait_until timed out
-                if not wait_until( lambda : f'TASK_{taskname}_COMPLETED' in os.environ, 5*60, self.logger, do_on_array_id, taskname ):
+                def __is_completed_lambda():
+                    return f'TASK_{taskname}_COMPLETED' in os.environ;
+                if not wait_until( __is_completed_lambda, 5*60, self.logger, do_on_array_id, taskname ):
                     raise RuntimeError( f'ERROR - wait_until timed out on array {self.get_task_id()} waiting for {taskname} on array {do_on_array_id}' );
 
                 os.environ[ f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ] = 'True';

@@ -6,14 +6,18 @@ from pathlib import Path;
 import shutil;
 import numpy as np;
 import utils.logging;
+import logging;
 
 # Source - https://stackoverflow.com/a/2785908
 # Posted by Alex Martelli, modified by community. See post 'Timeline' for change history
 # Retrieved 2025-11-12, License - CC BY-SA 3.0
-def wait_until( somepredicate, timeout, period=0.25, *args, **kwargs ):
+def wait_until( somepredicate, timeout, logger, waiting_on_array: int, taskname: str, period=0.25, *args, **kwargs ):
     mustend = time.time() + timeout
     while time.time() < mustend:
-        if somepredicate( *args, **kwargs ): return True
+        logger.debug( f'Waiting on array {waiting_on_array} to complete {taskname}' );
+        if somepredicate( *args, **kwargs ): 
+            logger.debug( f'Array {waiting_on_array} has completed {taskname}' );
+            return True
         time.sleep(period)
     return False
 
@@ -23,7 +27,7 @@ class DistributedUtils:
     Utility functions for running on a distributed system (SLURM in particular)
     """
     def __init__( self ):
-        self.logger = utils.logging.get_logger( __name__ );
+        self.logger = utils.logging.get_logger( __name__, logging.DEBUG );
 
     def is_distributed( self ) -> bool:
         return self.get_task_count() != 1;
@@ -68,7 +72,7 @@ class DistributedUtils:
                 os.environ[ f'TASK_{taskname}_COMPLETED' ] = 'True';
             else:
                 # Truth value tells us whether or not wait_until timed out
-                if not wait_until( lambda : f'TASK_{taskname}_COMPLETED' in os.environ, 10*60 ):
+                if not wait_until( lambda : f'TASK_{taskname}_COMPLETED' in os.environ, 5*60, self.logger, do_on_array_id, taskname ):
                     raise RuntimeError( f'ERROR - wait_until timed out on array {self.get_task_id()} waiting for {taskname} on array {do_on_array_id}' );
 
                 os.environ[ f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ] = 'True';

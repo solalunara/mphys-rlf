@@ -70,6 +70,7 @@ def sample( **parameter_args ):
     bin_end = int( ( task_id + 1 ) / task_count * n_samples ) + initial_count;
     if task_id + 1 == task_count:
         bin_end = n_samples + initial_count; #just in case the float->int conversion is messy
+    logger.debug( 'Images to generate: %i', bin_end - bin_start );
 
     # Get a distribution of scaled max fluxes from the lofar data
     # This requires:

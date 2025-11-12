@@ -1,3 +1,13 @@
+# This is a file created by Ashley and Luna that defines the ImageAnalyzer class, a general-purpose class to
+# turn data into, and run pybdsf analysis on, FITS images. This class supports both single-node multiprocessing
+# and multi-node distributed processing through batching the images, and inherits from RecursiveFileAnalyzer
+# because the ImageAnalyzer class could be said to be a type of RecursiveFileAnalyzer for the fits input directory.
+
+# The 'subdirectory' of the image analyzer plays a key role in its use. There are two subdirectories as defined
+# by this project, dataset and generated. In all the parent directories, e.g. fits_images, pybdsf/logs, etc. there
+# is a dataset folder and a generated folder, so the subdirectory organization allows that to be implemented
+# more simply than specifying the whole path for two different analyzers
+
 import os
 import bdsf;
 from astropy.io import fits;

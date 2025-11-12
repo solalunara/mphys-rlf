@@ -21,6 +21,7 @@ maxvals*/
 pybdsf_catalogs*/
 dr2_cutouts*/
 pybdsf*/
+!src/pybdsf_analysis/
 
 # Temporary files
 *.log

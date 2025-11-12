@@ -1,3 +1,9 @@
+# This is a file created by Ashley and Luna. It defines the RecursiveFileAnalyzer and the HistogramErrorDrawer.
+# The main purpose of the RecursiveFileAnalyzer is the method to get an unwrapped list of all the files in
+# its directory recursively, as this is useful for multiprocessing or other scenareos where knowing the total
+# number of files is helpful. The HistogramErrorDrawer is a utility class to house its Draw function, which
+# draws a histogram and calculates its errors with astropy.stats.poisson_conf_interval
+
 import astropy.stats;
 import numpy as np;
 from pathlib import Path;

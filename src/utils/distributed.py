@@ -49,7 +49,7 @@ class DistributedUtils:
         Paramters
         ---------
         taskname : str
-            The name of the task - should be unique and be a valid str to include in an environment variable
+            The name of the task - should be unique and be a valid str to include in a path name
         function
             The function to call only once.
         do_on_array_id : int
@@ -60,27 +60,26 @@ class DistributedUtils:
         """
         if do_on_array_id >= self.get_task_count():
             raise ValueError( f'Array id {do_on_array_id} out of range for array of length {self.get_task_count()}' );
+    
+        taskname = taskname.replace( '/', '_' ).replace( '-', '_' ).upper();
 
         if not self.is_distributed():
-            # Doing this separately from if we have multiple array elements allows us to ignore environment variable
+            # Doing this separately from if we have multiple array elements allows us to ignore flag file
             # deletion when this array id == do_on_array_id - hereafter we can assume if self.get_task_id() == do_on_array_id
             # that it is the first array to attempt the problem
             function( *args, **kwargs );
         else:
             if self.get_task_id() == do_on_array_id:
                 function( *args, **kwargs );
-                os.environ[ f'TASK_{taskname}_COMPLETED' ] = 'True';
+                Path( f'TASK_{taskname}_COMPLETED' ).touch();
             else:
                 # Truth value tells us whether or not wait_until timed out
-                def __is_completed_lambda():
-                    env_var = f'TASK_{taskname}_COMPLETED'
-                    self.logger.debug( 'Environment variable to check: %s', env_var );
-                    self.logger.debug( 'Value of env var: %s', os.environ.get( env_var, 'unset' ) );
-                    return env_var in os.environ;
-                if not wait_until( __is_completed_lambda, 5*60, self.logger, do_on_array_id, taskname ):
+                def __is_completed_lambda( taskname ):
+                    return Path( f'TASK_{taskname}_COMPLETED' ).exists();
+                if not wait_until( __is_completed_lambda, 5*60, self.logger, do_on_array_id, taskname, 0.25, taskname ):
                     raise RuntimeError( f'ERROR - wait_until timed out on array {self.get_task_id()} waiting for {taskname} on array {do_on_array_id}' );
 
-                os.environ[ f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ] = 'True';
+                Path( f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ).touch();
 
                 # If we're the last array to pass this function, delete the environment variables behind us
                 # also we don't need to check for the completed variable since it must exist to get here
@@ -88,14 +87,14 @@ class DistributedUtils:
                 for i in range( 0, self.get_task_count() ):
                     if i == do_on_array_id:
                         continue;
-                    elif f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' not in os.environ:
+                    elif not Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).exists():
                         last_array = False;
                 if last_array:
-                    os.environ.pop( f'TASK_{taskname}_COMPLETED' );
+                    Path( f'TASK_{taskname}_COMPLETED' ).unlink();
                     for i in range( 1, self.get_task_count() ):
                         if i == do_on_array_id:
                             continue;
-                        else: os.environ.pop( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' );
+                        else: Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
 
     def copy_file_for_multiple_nodes( self, file: Path ):
         """

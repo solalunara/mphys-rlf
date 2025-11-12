@@ -73,7 +73,10 @@ class DistributedUtils:
             else:
                 # Truth value tells us whether or not wait_until timed out
                 def __is_completed_lambda():
-                    return f'TASK_{taskname}_COMPLETED' in os.environ;
+                    env_var = f'TASK_{taskname}_COMPLETED'
+                    self.logger.debug( 'Environment variable to check: %s', env_var );
+                    self.logger.debug( 'Value of env var: %s', os.environ.get( env_var, 'unset' ) );
+                    return env_var in os.environ;
                 if not wait_until( __is_completed_lambda, 5*60, self.logger, do_on_array_id, taskname ):
                     raise RuntimeError( f'ERROR - wait_until timed out on array {self.get_task_id()} waiting for {taskname} on array {do_on_array_id}' );
 

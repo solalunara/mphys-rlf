@@ -35,7 +35,7 @@ class RecursiveFileAnalyzer:
         self.logger = get_logger( self.__class__.__name__ );
         self.logger.setLevel( log_level );
 
-    def GetUnwrappedList( self, path: Path | None = None, pattern: str | None = None ):
+    def GetUnwrappedList( self, path: Path | None = None, pattern: str | None = None, numeric_range: tuple[int,int] | None = None ):
         """
         Recurse through all files in path and unwrap all files into a single list,
         useful for multiprocessing
@@ -46,6 +46,10 @@ class RecursiveFileAnalyzer:
             The path to unwrap. None defaults to root (self.path).
         pattern: str | None = None
             The regex pattern to search for. Items not matching will not be returned. If None, return all.
+        numeric_range: int | None = None
+            If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
+            group into an integer. If the integer is within the numeric range (inclusive begin, exclusive end), 
+            match, otherwise don't match. None matches all.
 
         Returns
         -------
@@ -63,7 +67,21 @@ class RecursiveFileAnalyzer:
                 elif result is not None:
                     unwrapped_sublist.append( result );
             return unwrapped_sublist;
+
+        # Check number is in numeric range if passed
         elif ( pattern is None ) or ( re.match( pattern, str( path ) ) ):
+            if numeric_range is not None:
+                try:
+                    number_str = re.search( pattern, str( path ) ).group( 1 );
+                    number = int( number_str );
+                    if ( number >= numeric_range[ 1 ] ) or ( number < numeric_range[ 0 ] ):
+                        return None;
+                except IndexError:
+                    self.logger.warning( f'Numeric range ({numeric_range[ 0 ]},{numeric_range[ 1 ]}) provided but pattern {pattern} has no capture group' );
+                    return None;
+                except ValueError:
+                    self.logger.error( f'Captured {number_str} cannot be converted to an integer' );
+                    return None;
             return path;
         return None;
     

@@ -95,6 +95,41 @@ class DistributedUtils:
                         if i == do_on_array_id:
                             continue;
                         else: Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
+    
+    def last_task_only( self, taskname: str, function, *args, **kwargs ):
+        """
+        Similarly to single_task_only_forcewait this method is used to run a function only once on a single node,
+        however this method executes the task on the last node to run. This is useful e.g. if all the tasks are
+        doing data preparation and something is to be done once the data is prepared, like graphing the data.
+
+        Paramters
+        ---------
+        taskname : str
+            The name of the task - should be unique and be a valid str to include in a path name
+        function
+            The function to call only once.
+        """
+        taskname = taskname.replace( '/', '_' ).replace( '-', '_' ).upper();
+
+        if not self.is_distributed():
+            # Doing this separately from if we have multiple array elements allows us to ignore flag files
+            function( *args, **kwargs );
+        else:
+            last_array = True;
+            for i in range( 0, self.get_task_count() ):
+                if i == self.get_task_id():
+                    continue;
+                elif not Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).exists():
+                    Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).touch();
+                    last_array = False;
+
+            if last_array:
+                function( *args, **kwargs );
+                for i in range( 1, self.get_task_count() ):
+                    if i == self.get_task_id():
+                        continue;
+                    else: Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
+
 
     def copy_file_for_multiple_nodes( self, file: Path ):
         """

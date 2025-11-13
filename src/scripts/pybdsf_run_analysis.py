@@ -16,7 +16,7 @@ def analyze_dataset():
 
 def analyze_sampled():
     logger.info( 'Preparing samples' );
-    scripts.generate_fits_files.sample( **utils.parameters.FITS_SAMPLING_ARGS );
+    scripts.generate_fits_files.sample( utils.parameters.FITS_SAMPLING_ARGS );
     logger.info( 'Analyzing samples' );
     generated_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR, export_images=[ 'gaus_model', 'gaus_resid' ], catalog_format='fits' );
     generated_analyzer.AnalyzeAllFITSInInput();

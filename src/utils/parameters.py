@@ -5,14 +5,13 @@
 BINS_ARRAY = [ 10000 ];
 
 # Default parameters for fits file generation are placed here for ease of maintenance
-FITS_SAMPLING_ARGS = dict(
-    batch_size = 100,
-    n_samples = 99999,
-    timesteps = 25,
-    bin_size = 10000,
-    initial_count = -1,
-    use_cpu=False
-);
+FITS_SAMPLING_ARGS = [
+    "--batch-size", "100",
+    "--n-samples", "100000",
+    "--timesteps", "25",
+    "--bin-size", "10000",
+#    "--use-cpu"
+];
 
 # Default number of fits images to convert
 LOFAR_FITS_COUNT_CUTOFF = None;

@@ -7,6 +7,7 @@ import shutil;
 import numpy as np;
 import utils.logging;
 import logging;
+from utils.paths import FLAGS_PARENT as FP;
 
 # Source - https://stackoverflow.com/a/2785908
 # Posted by Alex Martelli, modified by community. See post 'Timeline' for change history
@@ -27,6 +28,7 @@ class DistributedUtils:
     Utility functions for running on a distributed system (SLURM in particular)
     """
     def __init__( self ):
+        FP.mkdir( exist_ok=True ); #Would ideally run files.paths on a single node but that requires the FP directory be made
         self.logger = utils.logging.get_logger( __name__, logging.DEBUG );
 
     def is_distributed( self ) -> bool:
@@ -71,15 +73,15 @@ class DistributedUtils:
         else:
             if self.get_task_id() == do_on_array_id:
                 function( *args, **kwargs );
-                Path( f'TASK_{taskname}_COMPLETED' ).touch();
+                ( FP / f'TASK_{taskname}_COMPLETED' ).touch();
             else:
                 # Truth value tells us whether or not wait_until timed out
                 def __is_completed_lambda( taskname ):
-                    return Path( f'TASK_{taskname}_COMPLETED' ).exists();
+                    return ( FP / f'TASK_{taskname}_COMPLETED' ).exists();
                 if not wait_until( __is_completed_lambda, None, self.logger, do_on_array_id, taskname, 1, taskname ):
                     raise RuntimeError( f'ERROR - wait_until timed out on array {self.get_task_id()} waiting for {taskname} on array {do_on_array_id}' );
 
-                Path( f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ).touch();
+                ( FP / f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ).touch();
 
                 # If we're the last array to pass this function, delete the environment variables behind us
                 # also we don't need to check for the completed variable since it must exist to get here
@@ -87,14 +89,21 @@ class DistributedUtils:
                 for i in range( 0, self.get_task_count() ):
                     if i == do_on_array_id:
                         continue;
-                    elif not Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).exists():
+                    elif not ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).exists():
                         last_array = False;
                 if last_array:
-                    Path( f'TASK_{taskname}_COMPLETED' ).unlink();
+                    try:
+                        ( FP / f'TASK_{taskname}_COMPLETED' ).unlink();
+                    except FileNotFoundError:
+                        self.logger.warning( f'Tried to delete TASK_{taskname}_ARRAY simultaneously with another node. This is probably harmless.' );
                     for i in range( 1, self.get_task_count() ):
                         if i == do_on_array_id:
                             continue;
-                        else: Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
+                        else: 
+                            try:
+                                ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
+                            except FileNotFoundError:
+                                self.logger.warning( f'Tried to delete TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE simultaneously with another node. This is probably harmless.' );
     
     def last_task_only( self, taskname: str, function, *args, **kwargs ):
         """
@@ -119,8 +128,8 @@ class DistributedUtils:
             for i in range( 0, self.get_task_count() ):
                 if i == self.get_task_id():
                     continue;
-                elif not Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).exists():
-                    Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).touch();
+                elif not ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).exists():
+                    ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).touch();
                     last_array = False;
 
             if last_array:
@@ -128,7 +137,7 @@ class DistributedUtils:
                 for i in range( 1, self.get_task_count() ):
                     if i == self.get_task_id():
                         continue;
-                    else: Path( f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
+                    else: ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
 
 
     def copy_file_for_multiple_nodes( self, file: Path ):

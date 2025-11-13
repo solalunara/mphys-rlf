@@ -15,6 +15,7 @@ IMG_DATA_PARENT = STORAGE_PARENT / "image_data"
 FITS_PARENT = STORAGE_PARENT / "fits_images"
 PYBDSF_PARENT = STORAGE_PARENT / "pybdsf"
 MAXVALS_PARENT = STORAGE_PARENT / "maxvals"
+FLAGS_PARENT = STORAGE_PARENT / "flagfiles"
 
 # Model configuration presets
 CONFIG_PARENT = BASE_PARENT / "src/model/configs"

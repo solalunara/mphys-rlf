@@ -129,7 +129,6 @@ class DistributedUtils:
                 if i == self.get_task_id():
                     continue;
                 elif not ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).exists():
-                    ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).touch();
                     last_array = False;
 
             if last_array:
@@ -138,6 +137,8 @@ class DistributedUtils:
                         continue;
                     else: ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();
                 function( *args, **kwargs );
+            else:
+                ( FP / f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ).touch();
 
 
     def copy_file_for_multiple_nodes( self, file: Path ):

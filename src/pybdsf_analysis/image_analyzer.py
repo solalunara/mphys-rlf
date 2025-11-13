@@ -23,6 +23,7 @@ from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
 import logging;
 from tqdm import tqdm;
 import files.paths;
+from utils.distributed import DistributedUtils;
 
 #Neccesary pool extention - PyBDSF uses daemon processes but only sometimes, and we want to batch the files themselves
 #Courtesy of https://stackoverflow.com/questions/52948447/error-group-argument-must-be-none-for-now-in-multiprocessing-pool
@@ -219,8 +220,9 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         are set, will only process the files designated to this task, with a bin defined by
         ( task_id / task_count * len( files ) ) to ( ( task_id + 1 ) / task_count * len( files ) )
         """
-        task_count = int( os.environ.get( "SLURM_ARRAY_TASK_COUNT", 1 ) );
-        task_id = int( os.environ.get( "SLURM_ARRAY_TASK_ID", 0 ) );
+        du = DistributedUtils();
+        task_count = du.get_task_count();
+        task_id = du.get_task_id();
 
         n_cpus = os.environ.get( "N_CPUS", 1 );
         if isinstance( n_cpus, str ):
@@ -278,11 +280,15 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 self.logger.info( f"Processing {path}:" );
 
                 #Something to do, process the image
-                img: bdsf.image.Image = bdsf.process_image(
-                    str( path ),
-                    outdir=(self.log_dir / self.subdir.joinpath( *postfix ).parent),
-                    **self.process_args
-                );
+                try:
+                    img: bdsf.image.Image = bdsf.process_image(
+                        str( path ),
+                        outdir=(self.log_dir / self.subdir.joinpath( *postfix ).parent),
+                        **self.process_args
+                    );
+                except ValueError:
+                    self.logger.error( f'Image {str( path )} failed to process' );
+                    return;
                 for img_type in export_images:
                     image_outfile = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *postfix );
                     image_outfile.parent.mkdir( parents=True, exist_ok=True );

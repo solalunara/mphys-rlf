@@ -181,7 +181,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             an array of pixel values of shape (len(files), 80, 80)
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, 'fits' );
+        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits' );
         value_list = np.empty( (len( files ), 80, 80) );
         i = 0;
         for file in tqdm( files, desc='Collecting Pixel Values...' ):
@@ -200,7 +200,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             an array of scaled fluxes of shape (len(files))
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, 'fits' );
+        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits' );
         value_list = np.empty( len( files ) );
         i = 0;
         for file in tqdm( files, desc='Collecting Scaled Fluxes...' ):
@@ -228,7 +228,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         self.logger.info( "Using %i cpu" + ( "s" if n_cpus != 1 else "" ), n_cpus );
         input_subdir = self.fits_input_dir / self.subdir;
 
-        files = self.GetUnwrappedList( input_subdir, 'fits' );
+        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits' );
 
         #distribute across multiple tasks
         n_files = len( files );

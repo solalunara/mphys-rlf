@@ -19,43 +19,33 @@ from utils.distributed import DistributedUtils;
 import h5py;
 import utils.paths as pth;
 import logging;
+from pathlib import Path;
 
 def get_h5_maxvals( outfile, infile ):
     with h5py.File(infile, "r") as f:
         max_vals = np.max(f["images"][:], axis=(1, 2))
     np.save( outfile, max_vals );    
 
+def get_path_from_index( index: int, bin_size: int ):
+    lower_bound = int( math.floor( ( index ) / bin_size ) * bin_size );
+    upper_bound = int( math.ceil( ( index + 1 ) / bin_size ) * bin_size ) - 1;
+    postfix = [ f"{lower_bound}-{upper_bound}", f"image{index}.fits" ];
+    full_image_path = ( utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR ).joinpath( *postfix );
+    return full_image_path, postfix;
 
-def sample( **parameter_args ):
+def sample( parameter_args ):
     files.sampling.single_node_prepare_for_sampling();
 
     logger = utils.logging.get_logger( __name__, logging.DEBUG );
 
     parser = argparse.ArgumentParser();
-    parser.add_argument( "-b", "--batch-size", help="The number of batches to be sampled at a time - default 100", type=int, default=(parameter_args[ 'batch_size' ] or 100) );
-    parser.add_argument( "-n", "--n-samples", help="The number of samples to generate - default 10000", type=int, default=(parameter_args[ 'n_samples' ] or 10000) );
-    parser.add_argument( "-t", "--timesteps", help="The number of timesteps in sampling - default 25", type=int, default=(parameter_args[ 'timesteps' ] or 25) );
-    parser.add_argument( "-c", "--use-cpu", help="Whether or not to use CPU and RAM for sampling, as opposed to using avaliable GPUs", action=argparse.BooleanOptionalAction );
-    parser.add_argument( "-p", "--preserve-values", help="Whether or not to preserve unscaled image values. By default images are scaled 0-1", action=argparse.BooleanOptionalAction );
-    parser.add_argument( "-sz", "--bin-size", help="How large the bins the generated images are sorted into are - default 10000", type=int, default=(parameter_args[ 'bin_size' ] or 10000) );
-    parser.add_argument( "-i", "--initial-count", help="What value to start generation at (affects file saving) - by default figure out dynamically from number of stored files", type=int, default=(parameter_args[ 'initial_count' ] or -1) );
-    args = parser.parse_args(); #will automatically read from the command line if passed, else use defaults
-
-    if parameter_args.get( 'use_cpu' ) is not None:
-        args.use_cpu = parameter_args[ 'use_cpu' ];
-    if parameter_args.get( 'preserve_values' ) is not None:
-        args.use_cpu = parameter_args[ 'preserve_values' ];
-
-    #Figure out initial count based on number of fits files already in the directory, but let the user supercede this value
-    logger.debug( 'Getting initial count...' );
-    initial_count = 0;
-    generated_images_dir = utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR;
-    if generated_images_dir.exists() and args.initial_count == -1:
-        analyzer = RecursiveFileAnalyzer( generated_images_dir );
-        initial_count = len( analyzer.GetUnwrappedList( None, 'fits' ) );
-    if args.initial_count >= 0:
-        initial_count = args.initial_count;
-    logger.debug( 'Got initial count %i', initial_count );
+    parser.add_argument( "-b", "--batch-size", help="The number of batches to be sampled at a time - default 100", type=int, default=100 );
+    parser.add_argument( "-n", "--n-samples", help="The number of samples to generate - default 10000", type=int, default=10000 );
+    parser.add_argument( "-t", "--timesteps", help="The number of timesteps in sampling - default 25", type=int, default=25 );
+    parser.add_argument( "-c", "--use-cpu", help="Whether or not to use CPU and RAM for sampling, as opposed to using avaliable GPUs", action='store_true' );
+    parser.add_argument( "-p", "--preserve-values", help="Whether or not to preserve unscaled image values. By default images are scaled 0-1", action='store_true' );
+    parser.add_argument( "-sz", "--bin-size", help="How large the bins the generated images are sorted into are - default 10000", type=int, default=10000 );
+    args = parser.parse_args( parameter_args ); #will automatically read from the command line if passed, else use defaults
 
     #Do a sampling loop of batch_size samples and save them to the disk as they're generated, until we reach n_samples
     model_sampler = model.sampler.Sampler( n_samples=args.batch_size, timesteps=args.timesteps, distribute_model=(not args.use_cpu) );
@@ -65,12 +55,28 @@ def sample( **parameter_args ):
     du = DistributedUtils();
     task_count = du.get_task_count();
     task_id = du.get_task_id();
-    n_samples = args.n_samples - initial_count;
-    bin_start = int( task_id / task_count * n_samples ) + initial_count;
-    bin_end = int( ( task_id + 1 ) / task_count * n_samples ) + initial_count;
+    n_samples = args.n_samples;
+    bin_start = int( task_id / task_count * n_samples );
+    bin_end = int( ( task_id + 1 ) / task_count * n_samples );
     if task_id + 1 == task_count:
-        bin_end = n_samples + initial_count; #just in case the float->int conversion is messy
-    logger.debug( 'bin_end=%i, bin_start=%i, n_samples=%i, initial_count=%i', bin_end, bin_start, n_samples, initial_count );
+        bin_end = n_samples; #just in case the float->int conversion is messy
+    logger.debug( 'bin_end=%i, bin_start=%i, n_samples=%i', bin_end, bin_start, n_samples );
+
+    # Figure out initial count based on number of fits files already in the directory
+    logger.debug( 'Getting initial count...' );
+    initial_count = 0;
+    generated_images_dir = utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR;
+    if generated_images_dir.exists():
+        analyzer = RecursiveFileAnalyzer( generated_images_dir );
+        initial_count = len( analyzer.GetUnwrappedList( None, r'.*?image(\d+)\.fits', (bin_start, bin_end) ) );
+    n_samples_in_bin = bin_end - bin_start;
+    logger.debug( 'Got initial count %i, requested samples in this bin %i', initial_count, n_samples_in_bin );
+
+    n_samples_to_generate = n_samples_in_bin - initial_count;
+    if n_samples_to_generate <= 0:
+        logger.info( 'Skipping bin %i-%i, nothing to do', bin_start, bin_end );
+        return;
+
 
     # Get a distribution of scaled max fluxes from the lofar data
     # This requires:
@@ -89,12 +95,14 @@ def sample( **parameter_args ):
     fpeak_model_dist = model_sampler.get_fpeak_model_dist( None, max_vals=data );
     logger.debug( 'Done with shared file IO' );
 
-    samplecount = bin_start;
+    sample_generated_count = 0;
+    sample_index = bin_start;
     image_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR );
-    while samplecount < bin_end:
-        batch_size = min( args.batch_size, bin_end - samplecount ); #to not double-generate at the borders
+    while sample_generated_count < n_samples_to_generate:
+        batch_size = min( args.batch_size, n_samples_to_generate - sample_generated_count ); #to not double-generate at the borders
         fpeak_model_values = torch.from_numpy( fpeak_model_dist( batch_size )[ :, np.newaxis ] );
         samples = model_sampler.quick_sample( utils.paths.LOFAR_MODEL_NAME, labels=fpeak_model_values, n_samples=batch_size, distribute_model=(not args.use_cpu) );
+        sample_generated_count += batch_size;
 
         for i in range( samples.shape[ 0 ] ):
             image = samples[ i, -1, 0, :, : ];
@@ -110,12 +118,16 @@ def sample( **parameter_args ):
 
             fscaled = fpeak_model_values.numpy()[ i, 0 ];
 
-            lower_bound = int( math.floor( ( samplecount + i ) / args.bin_size ) * args.bin_size );
-            upper_bound = int( math.ceil( ( samplecount + i + 1 ) / args.bin_size ) * args.bin_size ) - 1;
-            postfix = f"{lower_bound}-{upper_bound}/image{samplecount+i}.fits";
+            full_image_path, postfix = get_path_from_index( sample_index, args.bin_size );
+            while full_image_path.exists():
+                sample_index += 1;
+                full_image_path, postfix = get_path_from_index( sample_index, args.bin_size );
             image_analyzer.SaveImageToFITS( image, postfix, fscaled );
 
-        samplecount += args.batch_size;
+            if sample_index > bin_end:
+                logger.error( 'Sample index %i has gone outside allowed value %i', sample_index, bin_end );
+            elif sample_index == bin_end:
+                logger.info( 'Sample index %i has reached bin end %i - generated sample count %i/%i', sample_index, bin_end, sample_generated_count, n_samples_to_generate );
 
 if __name__ == '__main__':
-    sample( sys.argv );
+    sample( sys.argv[ 1: ] );

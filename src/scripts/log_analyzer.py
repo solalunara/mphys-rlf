@@ -8,6 +8,7 @@ import argparse;
 import logging;
 import scripts.pybdsf_run_analysis;
 import utils.paths;
+from utils.distributed import DistributedUtils;
 
 def FMR( path: Path ):
     """
@@ -35,24 +36,13 @@ def FMR( path: Path ):
     flux = float( match.group( 3 ) );
     return flux, mean, rms;
 
-
-
-if __name__ == "__main__":
-    scripts.pybdsf_run_analysis.analyze_everything();
-
-    parser = argparse.ArgumentParser();
-    parser.add_argument( "-v", "--verbose", help="Print a message to the console every time a file is read or a directory is entered", action='store_true' );
-    args = parser.parse_args();
-    verbose = args.verbose;
-
-    log_level = logging.DEBUG if verbose else logging.INFO;
-
+def plot_graphs_with_pybdsf_data( log_level: int ):
     dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR, log_level=log_level );
     generated_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR, log_level=log_level );
     dataset_log_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_LOG_PARENT / utils.paths.DATASET_SUBDIR );
     generated_log_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_LOG_PARENT / utils.paths.GENERATED_SUBDIR );
-    dataset_data = np.array( dataset_log_analyzer.ForEach( FMR, 'log' ) );
-    generated_data = np.array( generated_log_analyzer.ForEach( FMR, 'log' ) );
+    dataset_data = np.array( dataset_log_analyzer.ForEach( FMR, r'.*?\.log' ) );
+    generated_data = np.array( generated_log_analyzer.ForEach( FMR, r'.*?\.log' ) );
 
     dataset_pix_vals = dataset_analyzer.GetPixelValues().ravel();
     generated_pix_vals = generated_analyzer.GetPixelValues().ravel();
@@ -91,3 +81,16 @@ if __name__ == "__main__":
     ax_pix.set_title( "Pixel Values" );
 
     plt.savefig( "hist.png" );
+
+
+if __name__ == "__main__":
+    scripts.pybdsf_run_analysis.analyze_everything();
+
+    parser = argparse.ArgumentParser();
+    parser.add_argument( "-v", "--verbose", help="Print a message to the console every time a file is read or a directory is entered", action='store_true' );
+    args = parser.parse_args();
+    verbose = args.verbose;
+    log_level = logging.DEBUG if verbose else logging.INFO;
+
+    du = DistributedUtils();
+    du.last_task_only( 'plot_graphs_with_pybdsf_data', plot_graphs_with_pybdsf_data, log_level )

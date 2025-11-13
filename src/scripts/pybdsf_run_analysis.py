@@ -9,7 +9,7 @@ logger = get_logger( __name__ );
 
 def analyze_dataset():
     logger.info( 'Preparing dataset' );
-    scripts.dataset_h5_to_fits.single_node_validate_LOFAR_fits_images( True, utils.parameters.LOFAR_FITS_COUNT_CUTOFF, utils.parameters.BINS_ARRAY );
+    scripts.dataset_h5_to_fits.single_node_validate_LOFAR_fits_images( False, utils.parameters.LOFAR_FITS_COUNT_CUTOFF, utils.parameters.BINS_ARRAY );
     logger.info( 'Analyzing dataset' );
     dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR, export_images=[ 'gaus_model', 'gaus_resid' ], catalog_format='fits' );
     dataset_analyzer.AnalyzeAllFITSInInput();

@@ -11,9 +11,9 @@ import logging;
 # Source - https://stackoverflow.com/a/2785908
 # Posted by Alex Martelli, modified by community. See post 'Timeline' for change history
 # Retrieved 2025-11-12, License - CC BY-SA 3.0
-def wait_until( somepredicate, timeout, logger, waiting_on_array: int, taskname: str, period=1, *args, **kwargs ):
-    mustend = time.time() + timeout
-    while time.time() < mustend:
+def wait_until( somepredicate, timeout: int | None, logger, waiting_on_array: int, taskname: str, period=1, *args, **kwargs ):
+    mustend = time.time() + timeout if timeout is not None else None
+    while ( mustend is None ) or ( time.time() < mustend ):
         logger.debug( f'Waiting on array {waiting_on_array} to complete {taskname}: time={time.time()}' );
         if somepredicate( *args, **kwargs ): 
             logger.debug( f'Array {waiting_on_array} has completed {taskname}: time={time.time()}' );
@@ -76,7 +76,7 @@ class DistributedUtils:
                 # Truth value tells us whether or not wait_until timed out
                 def __is_completed_lambda( taskname ):
                     return Path( f'TASK_{taskname}_COMPLETED' ).exists();
-                if not wait_until( __is_completed_lambda, 15*60, self.logger, do_on_array_id, taskname, 1, taskname ):
+                if not wait_until( __is_completed_lambda, None, self.logger, do_on_array_id, taskname, 1, taskname ):
                     raise RuntimeError( f'ERROR - wait_until timed out on array {self.get_task_id()} waiting for {taskname} on array {do_on_array_id}' );
 
                 Path( f'TASK_{taskname}_ARRAY_{self.get_task_id()}_PASS_COMPLETE' ).touch();

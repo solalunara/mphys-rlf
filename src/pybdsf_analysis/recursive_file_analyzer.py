@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt;
 import logging;
 from utils.logging import get_logger;
 from tqdm import tqdm;
+import re;
 
 class RecursiveFileAnalyzer:
     """
@@ -34,7 +35,7 @@ class RecursiveFileAnalyzer:
         self.logger = get_logger( self.__class__.__name__ );
         self.logger.setLevel( log_level );
 
-    def GetUnwrappedList( self, path: Path | None = None, *exts: list[str] ):
+    def GetUnwrappedList( self, path: Path | None = None, pattern: str | None = None ):
         """
         Recurse through all files in path and unwrap all files into a single list,
         useful for multiprocessing
@@ -43,8 +44,8 @@ class RecursiveFileAnalyzer:
         ----------
         path: Path | None = None
             The path to unwrap. None defaults to root (self.path).
-        *ext: list[str]
-            The extension(s) to filter for - items not matching one of these extensions will not be returned. If empty return all.
+        pattern: str | None = None
+            The regex pattern to search for. Items not matching will not be returned. If None, return all.
 
         Returns
         -------
@@ -56,17 +57,17 @@ class RecursiveFileAnalyzer:
         if path.is_dir():
             unwrapped_sublist = [];
             for iter_file in path.iterdir():
-                result = self.GetUnwrappedList( iter_file, *exts );
+                result = self.GetUnwrappedList( iter_file, pattern );
                 if isinstance( result, list ):
                     unwrapped_sublist = unwrapped_sublist + result;
                 elif result is not None:
                     unwrapped_sublist.append( result );
             return unwrapped_sublist;
-        elif ( len( exts ) == 0 ) or ( exts.count( path.suffix[ 1: ] ) > 0 ):
+        elif ( pattern is None ) or ( re.match( pattern, str( path ) ) ):
             return path;
         return None;
     
-    def ForEach( self, function, *exts: list[str] ):
+    def ForEach( self, function, pattern: str | None = None ):
         """
         A method to perform a generic function on all files within a directory given by path, or
         to read path as a file and perform the generic function on its contents, with optional file extension filtering
@@ -75,15 +76,15 @@ class RecursiveFileAnalyzer:
         ----------
         function : callable
             The function which will be called on each file in path recursively
-        *exts : list[str]
-            Only call the function and return values of the function on files that match an element in this extension list. If empty match all files.
+        pattern: str | None = None
+            The regex pattern to search for. Items not matching will have the function operate on them. If None, operate on all.
 
         Returns
         -------
         list[ Any ]
             returns a list of the file return values within the path directory self.path
         """
-        files = self.GetUnwrappedList( None, *exts );
+        files = self.GetUnwrappedList( None, pattern );
         return_values = [];
         for file in tqdm( files, desc='Operating...', total=len( files ) ):
             return_values.append( function( file ) );

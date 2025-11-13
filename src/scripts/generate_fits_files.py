@@ -52,7 +52,7 @@ def sample( **parameter_args ):
     generated_images_dir = utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR;
     if generated_images_dir.exists() and args.initial_count == -1:
         analyzer = RecursiveFileAnalyzer( generated_images_dir );
-        initial_count = len( analyzer.GetUnwrappedList( None, 'fits' ) );
+        initial_count = len( analyzer.GetUnwrappedList( None, r'.*?\.fits' ) );
     if args.initial_count >= 0:
         initial_count = args.initial_count;
     logger.debug( 'Got initial count %i', initial_count );

@@ -172,43 +172,75 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         for key, val in ImageAnalyzer.LOFAR_process_arg_defaults.items():
             self.process_args[ key[ len( 'process_' ): ] ] = self.process_args.get( key[ len( 'process_' ): ], val );
     
-    def GetPixelValues( self ):
+    def GetPixelValues( self, return_nums: bool = False ):
         """
         A simple function to get all pixel values of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
+
+        Parameters
+        ----------
+        return_nums : bool
+            Whether or not to include the numeric value captured from the filename in the results.
 
         Returns
         -------
         np.ndarray
-            an array of pixel values of shape (len(files), 80, 80)
+            an array of pixel values of shape (len(files), 80, 80) if return_nums is false else (len(files), 80, 80)
+        np.ndarray (optional)
+            an array of indices captured from the filenames of shape (len(files))
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits' );
+        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits', return_nums=return_nums );
         value_list = np.empty( (len( files ), 80, 80) );
+        if return_nums:
+            index_list = np.empty( (len( files )) );
         i = 0;
         for file in tqdm( files, desc='Collecting Pixel Values...' ):
-            with fits.open( str( file ) ) as hdul:
-                value_list[ i ] = hdul[ 0 ].data;
+            if return_nums:
+                with fits.open( str( file[ 0 ] ) ) as hdul:
+                    value_list[ i ] = hdul[ 0 ].data;
+                index_list[ i ] = file[ 1 ];
+            else:
+                with fits.open( str( file ) ) as hdul:
+                    value_list[ i ] = hdul[ 0 ].data;
             i += 1;
-        return value_list;
+        if return_nums:
+            return value_list, index_list;
+        else: return value_list;
 
-    def GetScaledFlux( self ):
+    def GetScaledFlux( self, return_nums: bool = False ):
         """
         Get the scaled fluxes of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
+
+        Parameters
+        ----------
+        return_nums : bool
+            Whether or not to include the numeric value captured from the filename in the results.
 
         Returns
         -------
         np.ndarray
             an array of scaled fluxes of shape (len(files))
+        np.ndarray (optional)
+            an array of indices captured from the filenames of shape (len(files))
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits' );
+        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits', return_nums=return_nums );
         value_list = np.empty( len( files ) );
+        if return_nums:
+            index_list = np.empty( len( files ) );
         i = 0;
         for file in tqdm( files, desc='Collecting Scaled Fluxes...' ):
-            with fits.open( str( file ) ) as hdul:
-                value_list[ i ] = hdul[ 0 ].header[ 'FXSCLD' ];
+            if return_nums:
+                with fits.open( str( file[ 0 ] ) ) as hdul:
+                    value_list[ i ] = hdul[ 0 ].header[ 'FXSCLD' ];
+                    index_list[ i ] = file[ 1 ];
+            else:
+                with fits.open( str( file ) ) as hdul:
+                    value_list[ i ] = hdul[ 0 ].header[ 'FXSCLD' ];
             i += 1;
-        return value_list;
+        if return_nums:
+            return value_list, index_list;
+        else: return value_list;
 
     
     def AnalyzeAllFITSInInput( self ):
@@ -328,7 +360,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         hdu.header[ "CUNIT2" ] = "deg";
         hdu.header[ "FXSCLD" ] = fscaled;
         hdul = fits.HDUList( [ hdu ] );
-        outfile = self.fits_input_dir / self.subdir.joinpath( postfix );
+        outfile = self.fits_input_dir / self.subdir.joinpath( *postfix );
         outfile.parent.mkdir( parents=True, exist_ok=True );
         hdul.writeto( str( outfile ), overwrite=overwrite );
 

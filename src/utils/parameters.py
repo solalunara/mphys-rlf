@@ -7,11 +7,14 @@ BINS_ARRAY = [ 10000 ];
 # Default parameters for fits file generation are placed here for ease of maintenance
 FITS_SAMPLING_ARGS = [
     "--batch-size", "100",
-    "--n-samples", "100000",
+    "--n-samples", "100",
     "--timesteps", "25",
     "--bin-size", "10000",
 #    "--use-cpu"
 ];
 
 # Default number of fits images to convert
-LOFAR_FITS_COUNT_CUTOFF = None;
+LOFAR_FITS_COUNT_CUTOFF = 100;
+
+# Whether or not to clean the lofar fits images directory each run
+CLEAN_LOFAR_FITS_IMAGES = True;

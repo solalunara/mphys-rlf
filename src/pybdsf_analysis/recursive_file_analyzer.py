@@ -35,7 +35,7 @@ class RecursiveFileAnalyzer:
         self.logger = get_logger( self.__class__.__name__ );
         self.logger.setLevel( log_level );
 
-    def GetUnwrappedList( self, path: Path | None = None, pattern: str | None = None, numeric_range: tuple[int,int] | None = None ):
+    def GetUnwrappedList( self, path: Path | None = None, pattern: str | None = None, numeric_range: tuple[int,int] | None = None, return_nums: bool = False ):
         """
         Recurse through all files in path and unwrap all files into a single list,
         useful for multiprocessing
@@ -50,10 +50,14 @@ class RecursiveFileAnalyzer:
             If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
             group into an integer. If the integer is within the numeric range (inclusive begin, exclusive end), 
             match, otherwise don't match. None matches all.
+        return_nums: bool = False
+            If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
+            group into an integer. If return_nums is true, this will be returned with the path such that the return
+            type of this function is list[ (Path, int) ]
 
         Returns
         -------
-        list[ Path ]
+        list[ Path ] or list[ (Path, int) ]
             An unwrapped list of all files in path, or the path itself if it is a fits file
         """
         if path is None:
@@ -61,7 +65,7 @@ class RecursiveFileAnalyzer:
         if path.is_dir():
             unwrapped_sublist = [];
             for iter_file in path.iterdir():
-                result = self.GetUnwrappedList( iter_file, pattern );
+                result = self.GetUnwrappedList( iter_file, pattern, numeric_range, return_nums );
                 if isinstance( result, list ):
                     unwrapped_sublist = unwrapped_sublist + result;
                 elif result is not None:
@@ -70,19 +74,26 @@ class RecursiveFileAnalyzer:
 
         # Check number is in numeric range if passed
         elif ( pattern is None ) or ( re.match( pattern, str( path ) ) ):
-            if numeric_range is not None:
+            return_value = path;
+            if ( numeric_range is not None ) or ( return_nums ):
                 try:
                     number_str = re.search( pattern, str( path ) ).group( 1 );
                     number = int( number_str );
-                    if ( number >= numeric_range[ 1 ] ) or ( number < numeric_range[ 0 ] ):
-                        return None;
+                    if numeric_range is not None:
+                        if ( number >= numeric_range[ 1 ] ) or ( number < numeric_range[ 0 ] ):
+                            return None;
+                    if return_nums:
+                        return_value = ( path, number );
                 except IndexError:
-                    self.logger.warning( f'Numeric range ({numeric_range[ 0 ]},{numeric_range[ 1 ]}) provided but pattern {pattern} has no capture group' );
+                    if numeric_range is not None:
+                        self.logger.warning( f'Numeric range ({numeric_range[ 0 ]},{numeric_range[ 1 ]}) provided but pattern {pattern} has no capture group' );
+                    else:
+                        self.logger.warning( f'Tried to return numbers for each file provided but pattern {pattern} has no capture group' );
                     return None;
                 except ValueError:
                     self.logger.error( f'Captured {number_str} cannot be converted to an integer' );
                     return None;
-            return path;
+            return return_value;
         return None;
     
     def ForEach( self, function, pattern: str | None = None ):

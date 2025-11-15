@@ -6,32 +6,34 @@ from pathlib import PurePath;
 import matplotlib.pyplot as plt;
 
 if __name__ == '__main__':
-    dataset_resid_analyzer = ImageAnalyzer( f"{utils.paths.DATASET_SUBDIR}/gaus_resid", fits_input_dir=utils.paths.EXPORT_IMAGE_PARENT );
-    generated_resid_analyzer = ImageAnalyzer( f"{utils.paths.GENERATED_SUBDIR}/gaus_resid", fits_input_dir=utils.paths.EXPORT_IMAGE_PARENT );
+    scripts.pybdsf_run_analysis.analyze_everything();
 
-    # Delta - summed clipped residuals, per image
-    dataset_resid_values = dataset_resid_analyzer.GetPixelValues();
-    generated_resid_values = generated_resid_analyzer.GetPixelValues();
+    for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
+        resid_analyzer = ImageAnalyzer( f"{subdir}/gaus_resid", fits_input_dir=utils.paths.PYBDSF_EXPORT_IMAGE_PARENT, write_catalog=False );
 
-    drv_clipped = np.where( dataset_resid_values > 0, dataset_resid_values, 0 );
-    grv_clipped = np.where( generated_resid_values > 0, generated_resid_values, 0 );
+        # Delta - summed clipped residuals, per image
+        resid_values, resid_indexes = resid_analyzer.GetPixelValues( True );
 
-    dataset_delta = np.sum( drv_clipped, axis=(1,2) );
-    generated_delta = np.sum( grv_clipped, axis=(1,2) );
+        rv_clipped = np.where( resid_values > 0, resid_values, 0 );
 
-    # Scaled flux 
-    dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR );
-    generated_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR );
+        delta = np.sum( rv_clipped, axis=(1,2) );
 
-    dataset_scaled_flux = dataset_analyzer.GetScaledFlux();
-    generated_scaled_flux = generated_analyzer.GetScaledFlux();
+        # Scaled flux 
+        analyzer = ImageAnalyzer( subdir, write_catalog=False );
 
-    # Combined points
-    dataset_pts = np.array( (dataset_scaled_flux, dataset_delta) );
-    generated_pts = np.array( (generated_scaled_flux, generated_delta) );
+        scaled_flux, scaled_indexes = analyzer.GetScaledFlux( True );
 
-    plt.scatter( dataset_scaled_flux, dataset_delta, label='dataset', color='b' );
-    plt.scatter( generated_scaled_flux, generated_delta, label='generated', color='g' );
+        # Combined points
+        matches_resid = np.isin( resid_indexes, scaled_indexes, assume_unique=True );
+        matches_scaled = np.isin( scaled_indexes, resid_indexes, assume_unique=True );
+        pts = np.array( (delta[ matches_resid ], scaled_flux[ matches_scaled ]) );
+
+
+        plt.scatter( pts[ 1 ], pts[ 0 ], label=subdir, 
+                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b' );
+    plt.xlabel( 'Scaled Flux' );
+    plt.ylabel( 'Image Delta' );
+    plt.yscale( 'log' );
     plt.legend();
     plt.title( 'Scaled flux vs summed residuals' );
     plt.show();

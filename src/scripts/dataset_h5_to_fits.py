@@ -20,6 +20,7 @@ from tqdm import tqdm;
 import files.dataset;
 from files.dataset import LOFAR_DATA_PATH;
 from utils.distributed import DistributedUtils;
+from sklearn.preprocessing import PowerTransformer;
 
 def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
     """
@@ -60,6 +61,11 @@ def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff
         images_len = images.shape[ 0 ];
         num_to_convert = min( cutoff, images_len ) if cutoff is not None else images_len;
 
+        # Set up the power transformer so we can scale the max fluxes
+        max_vals = np.max( images[:], axis=(1, 2) );
+        pt = PowerTransformer( method="box-cox" );
+        pt.fit( max_vals.reshape(-1, 1) );
+
         for i in tqdm( range( num_to_convert ) ):
             image = images[ i ];
 
@@ -70,7 +76,8 @@ def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff
             if im_min < 0:
                 raise ValueError( "Images not preprocessed to remove negative values" );
             image = ( image - im_min ) / ( im_max - im_min );
-
+            
+            flux_scaled = pt.transform( np.array( [ im_max ] ).reshape(-1, 1) )[ 0, 0 ];
 
             hdu = fits.PrimaryHDU( image );
             hdu.header[ "CTYPE1" ] = "RA---SIN";
@@ -79,7 +86,7 @@ def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff
             hdu.header[ "CDELT2" ] = 1.5 * 0.00027778;
             hdu.header[ "CUNIT1" ] = "deg";
             hdu.header[ "CUNIT2" ] = "deg";
-            hdu.header[ "FXSCLD" ] = (im_max**(-0.23) - 1)/(-0.23);
+            hdu.header[ "FXSCLD" ] = flux_scaled;
             hdul = fits.HDUList( [ hdu ] );
 
             #Create bins based on bin_sizes

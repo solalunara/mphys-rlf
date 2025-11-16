@@ -46,7 +46,7 @@ if __name__ == '__main__':
     image_num = 0;
 
     #dataset_rfa = RecursiveFileAnalyzer( utils.paths.FITS_PARENT / utils.paths.DATASET_SUBDIR );
-    #image_fits_file = dataset_rfa.ForEach( lambda path : path.name if path.name == f"image{image_num}.fits" else None, 'fits' );
+    #image_fits_file = dataset_rfa.for_each( lambda path : path.name if path.name == f"image{image_num}.fits" else None, 'fits' );
     with h5py.File( str( utils.paths.LOFAR_DATA_PATH ), 'r' ) as h5:
         image_preprocessed = h5[ 'images' ][ image_num ][ :, : ];
         info_array = h5[ 'catalog' ][ 'block1_values' ][ : ][ image_num ];

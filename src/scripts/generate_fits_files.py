@@ -56,10 +56,8 @@ def sample( parameter_args ):
     task_count = du.get_task_count();
     task_id = du.get_task_id();
     n_samples = args.n_samples;
-    bin_start = int( task_id / task_count * n_samples );
-    bin_end = int( ( task_id + 1 ) / task_count * n_samples );
-    if task_id + 1 == task_count:
-        bin_end = n_samples; #just in case the float->int conversion is messy
+    bin_start = du.get_bin_start( n_samples );
+    bin_end = du.get_bin_end( n_samples );
     logger.debug( 'bin_end=%i, bin_start=%i, n_samples=%i', bin_end, bin_start, n_samples );
 
     # Figure out initial count based on number of fits files already in the directory
@@ -68,7 +66,7 @@ def sample( parameter_args ):
     generated_images_dir = utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR;
     if generated_images_dir.exists():
         analyzer = RecursiveFileAnalyzer( generated_images_dir );
-        initial_count = len( analyzer.GetUnwrappedList( None, r'.*?image(\d+)\.fits$', (bin_start, bin_end) ) );
+        initial_count = len( analyzer.get_unwrapped_list( None, r'.*?image(\d+)\.fits$', (bin_start, bin_end) ) );
     n_samples_in_bin = bin_end - bin_start;
     logger.debug( 'Got initial count %i, requested samples in this bin %i', initial_count, n_samples_in_bin );
 
@@ -122,7 +120,7 @@ def sample( parameter_args ):
             while full_image_path.exists():
                 sample_index += 1;
                 full_image_path, postfix = get_path_from_index( sample_index, args.bin_size );
-            image_analyzer.SaveImageToFITS( image, postfix, fscaled );
+            image_analyzer.save_image_to_FITS( image, postfix, fscaled );
 
             if sample_index > bin_end:
                 logger.error( 'Sample index %i has gone outside allowed value %i', sample_index, bin_end );

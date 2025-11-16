@@ -172,7 +172,33 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         for key, val in ImageAnalyzer.LOFAR_process_arg_defaults.items():
             self.process_args[ key[ len( 'process_' ): ] ] = self.process_args.get( key[ len( 'process_' ): ], val );
     
-    def GetPixelValues( self, return_nums: bool = False ):
+    def get_postfix( self, path: Path ):
+        """
+        Simple function to get the 'postfix' of a path relative to subdir.
+        This function looks for the last occurrence of the last element of subdir.parts in path.parts,
+        and returns all of path.parts after its index, giving the relative path to the path from subdir,
+        referred to here as the 'postfix'
+
+        Parameters
+        ----------
+        path : Path
+            The path to get the postfix of
+
+        Returns
+        -------
+        tuple[ str... ]
+            The parts for the postfix as a tuple of strings. To add to a path, use .joinpath( *postfix );
+
+        Raises
+        ------
+        ValueError
+            if self.subdir.parts[ -1 ] is not present in path.parts
+        """
+        last_index_of_subdir = len( path.parts ) - 1 - path.parts[ ::-1 ].index( self.subdir.parts[ -1 ] );
+        return path.parts[ (last_index_of_subdir + 1 ): ];
+
+    
+    def get_pixel_values( self, return_nums: bool = False ):
         """
         A simple function to get all pixel values of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
 
@@ -189,7 +215,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             an array of indices captured from the filenames of shape (len(files))
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
+        files = self.get_unwrapped_list( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
         value_list = np.empty( (len( files ), 80, 80) );
         if return_nums:
             index_list = np.empty( (len( files )) );
@@ -207,7 +233,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             return value_list, index_list;
         else: return value_list;
 
-    def GetScaledFlux( self, return_nums: bool = False ):
+    def get_scaled_flux( self, return_nums: bool = False ):
         """
         Get the scaled fluxes of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
 
@@ -224,7 +250,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             an array of indices captured from the filenames of shape (len(files))
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
+        files = self.get_unwrapped_list( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
         value_list = np.empty( len( files ) );
         if return_nums:
             index_list = np.empty( len( files ) );
@@ -243,7 +269,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         else: return value_list;
 
     
-    def AnalyzeAllFITSInInput( self ):
+    def analyze_all_FITS_in_input( self ):
         """
         Recursively analyze all of "[fits_input_dir]/[subdir]/\*\*.fits"
 
@@ -262,7 +288,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         self.logger.info( "Using %i cpu" + ( "s" if n_cpus != 1 else "" ), n_cpus );
         input_subdir = self.fits_input_dir / self.subdir;
 
-        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits$' );
+        files = self.get_unwrapped_list( input_subdir, r'.*?\.fits$' );
 
         #distribute across multiple tasks
         n_files = len( files );
@@ -273,11 +299,11 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         files = files[ bin_start:bin_end ];
 
         p = NonDaemonPool( processes=n_cpus );
-        p.map( self.AnalyzeFITSAtPath, files );
+        p.map( self.analyze_FITS_at_path, files );
         
         
     
-    def AnalyzeFITSAtPath( self, path: Path | str ):
+    def analyze_FITS_at_path( self, path: Path | str ):
         """
         Function to analyze a single fits file at a given path
 
@@ -297,7 +323,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 # Use a flag file instead of actual output because sometimes PyBDSF doesn't write output,
                 # e.g. when running analysis on data from LOFAR_dataset.h5 for items with extreme clipping
                 # like image10.fits
-                postfix = path.parts[ (path.parts.index( self.subdir.parts[ -1 ] ) + 1 ): ];
+                postfix = self.get_postfix( path );
                 flag_postfix = postfix[ :-1 ] + ( postfix[ -1 ] + '.flag', );
 
                 log_file = self.log_dir / self.subdir.joinpath( *postfix );
@@ -343,7 +369,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             else:
                 self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) );
     
-    def SaveImageToFITS( self, image: np.ndarray, postfix: str, fscaled: float, overwrite: bool = True ):
+    def save_image_to_FITS( self, image: np.ndarray, postfix: str, fscaled: float, overwrite: bool = True ):
         """
         Save a numpy 2d array to a fits file under "[fits_input_dir]/[subdir]/"
 
@@ -390,5 +416,5 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             postfix for the fits file. Can either be the name of the fits file (e.g. "example.fits") or the name
             and location under "[fits_input_dir]/[subdir]/" to store it in (e.g. "example_bin/example.fits")
         """
-        self.SaveImageToFITS( image, postfix );
-        self.AnalyzeFITSAtPath( self.fits_input_dir / self.subdir / postfix );
+        self.save_image_to_FITS( image, postfix );
+        self.analyze_FITS_at_path( self.fits_input_dir / self.subdir / postfix );

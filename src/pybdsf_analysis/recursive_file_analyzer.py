@@ -31,11 +31,10 @@ class RecursiveFileAnalyzer:
         if path is not Path:
             path = Path( path );
         self.path = path;
-        self.counter = 0;
         self.logger = get_logger( self.__class__.__name__ );
         self.logger.setLevel( log_level );
 
-    def GetUnwrappedList( self, path: Path | None = None, pattern: str | None = None, numeric_range: tuple[int,int] | None = None, return_nums: bool = False ):
+    def get_unwrapped_list( self, path: Path | None = None, pattern: str | None = None, numeric_range: tuple[int,int] | None = None, return_nums: bool = False ):
         """
         Recurse through all files in path and unwrap all files into a single list,
         useful for multiprocessing
@@ -65,7 +64,7 @@ class RecursiveFileAnalyzer:
         if path.is_dir():
             unwrapped_sublist = [];
             for iter_file in path.iterdir():
-                result = self.GetUnwrappedList( iter_file, pattern, numeric_range, return_nums );
+                result = self.get_unwrapped_list( iter_file, pattern, numeric_range, return_nums );
                 if isinstance( result, list ):
                     unwrapped_sublist = unwrapped_sublist + result;
                 elif result is not None:
@@ -96,7 +95,7 @@ class RecursiveFileAnalyzer:
             return return_value;
         return None;
     
-    def ForEach( self, function, pattern: str | None = None ):
+    def for_each( self, function, path: Path | None = None, pattern: str | None = None, progress_bar: bool = False, numeric_range: tuple[int,int] | None = None, return_nums: bool = False ):
         """
         A method to perform a generic function on all files within a directory given by path, or
         to read path as a file and perform the generic function on its contents, with optional file extension filtering
@@ -105,21 +104,50 @@ class RecursiveFileAnalyzer:
         ----------
         function : callable
             The function which will be called on each file in path recursively
-        pattern: str | None = None
+        path : Path | None = None
+            The path to do the for_each on, or None to do the for_each on self.path
+        pattern : str | None = None
             The regex pattern to search for. Items not matching will have the function operate on them. If None, operate on all.
+        progress_bar : bool = False
+            Whether or not to show a progress bar for the function operating on each file
+        numeric_range: int | None = None
+            If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
+            group into an integer. If the integer is within the numeric range (inclusive begin, exclusive end), 
+            match, otherwise don't match. None matches all.
+        return_nums: bool = False
+            If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
+            group into an integer. If return_nums is true, this will be returned with the path such that the return
+            type of this function is of shape ( len( files ), 2 )
 
         Returns
         -------
-        list[ Any ]
-            returns a list of the file return values within the path directory self.path
+        np.ndarray
+            returns a list of the file return values within the path directory self.path, of shape ( len( files ) ) if
+            return_nums is False else ( len( files ), 2 )
         """
-        files = self.GetUnwrappedList( None, pattern );
-        return_values = [];
-        for file in tqdm( files, desc='Operating...', total=len( files ) ):
-            return_values.append( function( file ) );
-            self.logger.debug( f"Reading file {self.counter}: {file}" );
-            self.counter += 1;
-        return return_values;
+        files = self.get_unwrapped_list( path, pattern, numeric_range, return_nums );
+        return_values = [ None ] * len( files );
+        if return_nums:
+            return_numbers = np.empty( (len( files )) );
+        i = 0;
+        if progress_bar:
+            arr = tqdm( files, desc='Operating...', total=len( files ) );
+        else:
+            arr = files;
+        for file in arr:
+            if return_nums:
+                return_values[ i ] = function( file[ 0 ] );
+                return_numbers[ i ] = file[ 1 ];
+                self.logger.debug( f"Reading file {file[ 1 ]}: {file[ 0 ]}" );
+            else:
+                return_values[ i ] = function( file );
+                self.logger.debug( f"Reading file {file}" );
+            i += 1;
+
+        if return_nums:
+            return return_values, return_numbers;
+        else:
+            return return_values;
 
 class HistogramErrorDrawer:
     """
@@ -128,7 +156,7 @@ class HistogramErrorDrawer:
     def __init__( self ):
         pass;
 
-    def Draw( self, data: np.ndarray, ax: plt.Axes, bins: int, range: tuple[ float, float ], label: str, color: str, density: bool, log: bool ):
+    def draw( self, data: np.ndarray, ax: plt.Axes, bins: int, range: tuple[ float, float ], label: str, color: str, density: bool, log: bool ):
         """
         Utility function to draw a histogram with error bars according to astropy.stats.poisson_conf_interval with sigma=1.0
 

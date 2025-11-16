@@ -40,6 +40,18 @@ class DistributedUtils:
     def get_task_count( self ) -> int:
         return int( os.environ.get( "SLURM_ARRAY_TASK_COUNT", 1 ) );
 
+    def get_bin_end( self, n: int ) -> int:
+        """
+        Function to take a total number n and get the corresponding end of the bin that this node should be dealing with
+        """
+        return ( n * ( self.get_task_id() + 1 ) ) // self.get_task_count();
+
+    def get_bin_start( self, n: int ) -> int:
+        """
+        Function to take a total number n and get the corresponding start of the bin that this node should be dealing with
+        """
+        return ( n * self.get_task_id() ) // self.get_task_count();
+
     def single_task_only_forcewait( self, taskname: str, function, do_on_array_id: int, *args, **kwargs ):
         """
         A method to execute a function only once when run on a job array, and force all other tasks to wait for completion.

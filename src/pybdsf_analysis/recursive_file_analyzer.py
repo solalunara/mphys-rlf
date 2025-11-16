@@ -88,10 +88,8 @@ class RecursiveFileAnalyzer:
                         self.logger.warning( f'Numeric range ({numeric_range[ 0 ]},{numeric_range[ 1 ]}) provided but pattern {pattern} has no capture group' );
                     else:
                         self.logger.warning( f'Tried to return numbers for each file provided but pattern {pattern} has no capture group' );
-                    return None;
                 except ValueError:
                     self.logger.error( f'Captured {number_str} cannot be converted to an integer' );
-                    return None;
             return return_value;
         return None;
     

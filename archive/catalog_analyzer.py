@@ -44,8 +44,8 @@ if __name__ == "__main__":
 
     dataset_catalog_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_ANALYSIS_PARENT / utils.paths.DATASET_SUBDIR, log_level );
     generated_catalog_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_ANALYSIS_PARENT / utils.paths.GENERATED_SUBDIR, log_level );
-    dataset_fluxes = np.array( dataset_catalog_analyzer.ForEach( FluxCounter, r'.*?\.fits$' ) ); #both fluxes and flux errors, (N,2)
-    generated_fluxes = np.array( generated_catalog_analyzer.ForEach( FluxCounter, r'.*?\.fits$' ) ); #both fluxes and flux errors, (N,2)
+    dataset_fluxes = np.array( dataset_catalog_analyzer.for_each( FluxCounter, r'.*?\.fits$' ) ); #both fluxes and flux errors, (N,2)
+    generated_fluxes = np.array( generated_catalog_analyzer.for_each( FluxCounter, r'.*?\.fits$' ) ); #both fluxes and flux errors, (N,2)
 
     resolution = 1000;
     fig = plt.figure( figsize=(int(resolution*1/100), int(resolution/100)) );
@@ -56,8 +56,8 @@ if __name__ == "__main__":
 
     BINCOUNT = 10;
     hist = HistogramErrorDrawer();
-    hist.Draw( dataset_fluxes[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="dataset", color="b", density=True, log=True );
-    hist.Draw( generated_fluxes[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="generated", color="g", density=True, log=True );
+    hist.draw( dataset_fluxes[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="dataset", color="b", density=True, log=True );
+    hist.draw( generated_fluxes[ :, 0 ], ax=ax_flux, bins=BINCOUNT, range=(0,30), label="generated", color="g", density=True, log=True );
 
     ax_flux.legend();
     ax_flux.set_title( "Model Fluxes" );

@@ -68,7 +68,7 @@ def sample( parameter_args ):
     generated_images_dir = utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR;
     if generated_images_dir.exists():
         analyzer = RecursiveFileAnalyzer( generated_images_dir );
-        initial_count = len( analyzer.GetUnwrappedList( None, r'.*?image(\d+)\.fits', (bin_start, bin_end) ) );
+        initial_count = len( analyzer.GetUnwrappedList( None, r'.*?image(\d+)\.fits$', (bin_start, bin_end) ) );
     n_samples_in_bin = bin_end - bin_start;
     logger.debug( 'Got initial count %i, requested samples in this bin %i', initial_count, n_samples_in_bin );
 

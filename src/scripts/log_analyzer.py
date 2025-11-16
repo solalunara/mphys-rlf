@@ -41,8 +41,8 @@ def plot_graphs_with_pybdsf_data( log_level: int ):
     generated_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR, log_level=log_level );
     dataset_log_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_LOG_PARENT / utils.paths.DATASET_SUBDIR );
     generated_log_analyzer = RecursiveFileAnalyzer( utils.paths.PYBDSF_LOG_PARENT / utils.paths.GENERATED_SUBDIR );
-    dataset_data = np.array( dataset_log_analyzer.ForEach( FMR, r'.*?\.log' ) );
-    generated_data = np.array( generated_log_analyzer.ForEach( FMR, r'.*?\.log' ) );
+    dataset_data = np.array( dataset_log_analyzer.ForEach( FMR, r'.*?\.log$' ) );
+    generated_data = np.array( generated_log_analyzer.ForEach( FMR, r'.*?\.log$' ) );
 
     dataset_pix_vals = dataset_analyzer.GetPixelValues().ravel();
     generated_pix_vals = generated_analyzer.GetPixelValues().ravel();

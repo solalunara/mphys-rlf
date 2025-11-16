@@ -189,7 +189,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             an array of indices captured from the filenames of shape (len(files))
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits', return_nums=return_nums );
+        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
         value_list = np.empty( (len( files ), 80, 80) );
         if return_nums:
             index_list = np.empty( (len( files )) );
@@ -224,7 +224,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             an array of indices captured from the filenames of shape (len(files))
         """
         input_subdir = self.fits_input_dir / self.subdir;
-        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits', return_nums=return_nums );
+        files = self.GetUnwrappedList( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
         value_list = np.empty( len( files ) );
         if return_nums:
             index_list = np.empty( len( files ) );
@@ -262,7 +262,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         self.logger.info( "Using %i cpu" + ( "s" if n_cpus != 1 else "" ), n_cpus );
         input_subdir = self.fits_input_dir / self.subdir;
 
-        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits' );
+        files = self.GetUnwrappedList( input_subdir, r'.*?\.fits$' );
 
         #distribute across multiple tasks
         n_files = len( files );
@@ -293,20 +293,27 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             self.logger.error( 'ERROR - Cannot analyze %s as fits file, is directory', str( path ) );
         else:
             if path.suffix == ".fits":
-                #First see if we have any work to do
-                postfix = path.parts[ (path.parts.index( str( self.subdir ) ) + 1 ): ];
+                # First see if we have any work to do
+                # Use a flag file instead of actual output because sometimes PyBDSF doesn't write output,
+                # e.g. when running analysis on data from LOFAR_dataset.h5 for items with extreme clipping
+                # like image10.fits
+                postfix = path.parts[ (path.parts.index( self.subdir.parts[ -1 ] ) + 1 ): ];
+                flag_postfix = postfix[ :-1 ] + ( postfix[ -1 ] + '.flag', );
+
+                log_file = self.log_dir / self.subdir.joinpath( *postfix );
+
                 write_catalog = self.write_catalog;
                 if write_catalog:
-                    catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
-                    if catalog_outfile.exists():
+                    catalog_outfile_flag = self.catalog_dir / self.subdir.joinpath( *flag_postfix );
+                    if catalog_outfile_flag.exists():
                         write_catalog = False;
                 export_images = [];
                 for img_type in self.export_images:
-                    image_outfile = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *postfix );
-                    if not image_outfile.exists():
+                    image_outfile_flag = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *flag_postfix );
+                    if not image_outfile_flag.exists():
                         export_images.append( img_type );
                 
-                if not write_catalog and len( export_images ) == 0:
+                if ( not write_catalog ) and ( len( export_images ) == 0 ) and ( not log_file.exists() ):
                     self.logger.info( f"Skipping {path}, no work to do" );
                     return; #nothing to do
                 self.logger.info( f"Processing {path}:" );
@@ -323,12 +330,16 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                     return;
                 for img_type in export_images:
                     image_outfile = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *postfix );
+                    image_outfile_flag = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *flag_postfix );
                     image_outfile.parent.mkdir( parents=True, exist_ok=True );
                     img.export_image( outfile=str( image_outfile ), **self.export_img_args[ img_type ] );
+                    image_outfile_flag.touch();
                 if write_catalog:
                     catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
+                    catalog_outfile_flag = self.catalog_dir / self.subdir.joinpath( *flag_postfix );
                     catalog_outfile.parent.mkdir( parents=True, exist_ok=True );
                     img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args );
+                    catalog_outfile_flag.touch();
             else:
                 self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) );
     

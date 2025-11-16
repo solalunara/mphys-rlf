@@ -6,7 +6,7 @@ from pathlib import PurePath;
 import matplotlib.pyplot as plt;
 
 if __name__ == '__main__':
-    #scripts.pybdsf_run_analysis.analyze_everything();
+    scripts.pybdsf_run_analysis.analyze_everything();
 
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
         resid_analyzer = ImageAnalyzer( f"{subdir}/gaus_resid", fits_input_dir=utils.paths.PYBDSF_EXPORT_IMAGE_PARENT, write_catalog=False );

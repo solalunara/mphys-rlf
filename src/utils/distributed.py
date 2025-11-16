@@ -96,7 +96,7 @@ class DistributedUtils:
                         ( FP / f'TASK_{taskname}_COMPLETED' ).unlink();
                     except FileNotFoundError:
                         self.logger.warning( f'Tried to delete TASK_{taskname}_ARRAY simultaneously with another node. This is probably harmless.' );
-                    for i in range( 1, self.get_task_count() ):
+                    for i in range( 0, self.get_task_count() ):
                         if i == do_on_array_id:
                             continue;
                         else: 
@@ -132,7 +132,7 @@ class DistributedUtils:
                     last_array = False;
 
             if last_array:
-                for i in range( 1, self.get_task_count() ):
+                for i in range( 0, self.get_task_count() ):
                     if i == self.get_task_id():
                         continue;
                     else: ( FP / f'TASK_{taskname}_ARRAY_{i}_PASS_COMPLETE' ).unlink();

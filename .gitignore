@@ -29,6 +29,7 @@ pybdsf*/
 wandb/
 **/__pycache__/
 *test.sh
+flagfiles/
 
 # Python virtual environments
 .venv/

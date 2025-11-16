@@ -46,13 +46,13 @@ def copy_config_to_sampling_dir():
     if not LOFAR_SAMPLING_CONFIG_PATH.exists():
         shutil.copy(pth.CONFIG_PARENT / "LOFAR_Model.json", LOFAR_SAMPLING_CONFIG_PATH)
 
-def prepare_folders():
+def make_folders_and_copy_config():
     make_folders()
     copy_config_to_sampling_dir()
 
 def single_node_prepare_folders():
     du = DistributedUtils()
-    du.single_task_only_forcewait('prepare_folders', prepare_folders, 0)
+    du.single_task_only_forcewait('make_folders_and_copy_config', make_folders_and_copy_config, 0)
 
 if __name__ == '__main__':
     single_node_prepare_folders()

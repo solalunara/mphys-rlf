@@ -7,7 +7,7 @@ from utils.distributed import DistributedUtils
 LOFAR_DATA_PATH = LOFAR_DATA_PARENT / "LOFAR_Dataset.h5"
 
 def download_dataset():
-    paths.prepare_folders()
+    paths.make_folders()
     # Check if files are present, if not download:
     files = {
         LOFAR_DATA_PATH: "https://cloud.hs.uni-hamburg.de/s/jPZdExPPmcZ48o5",

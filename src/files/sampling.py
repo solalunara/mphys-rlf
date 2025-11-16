@@ -6,7 +6,6 @@ from utils.distributed import DistributedUtils
 def prepare_for_sampling():
     files.paths.make_folders()
     files.paths.copy_config_to_sampling_dir()
-    files.dataset.download_dataset()
     files.model.download_model()
     files.model.validate_model_in_sampling_dir()
 

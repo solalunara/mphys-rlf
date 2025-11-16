@@ -3,7 +3,7 @@ from pybdsf_analysis.recursive_file_analyzer import HistogramErrorDrawer;
 from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 import argparse;
 import logging;
-import scripts.pybdsf_run_analysis;
+import pybdsf_analysis.pybdsf_run_analysis;
 import utils.paths;
 from utils.distributed import DistributedUtils;
 import logging;
@@ -59,7 +59,7 @@ def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
 
 
 if __name__ == "__main__":
-    scripts.pybdsf_run_analysis.analyze_everything();
+    pybdsf_analysis.pybdsf_run_analysis.analyze_everything();
 
     parser = argparse.ArgumentParser();
     parser.add_argument( "-v", "--verbose", help="Print a message to the console every time a file is read or a directory is entered", action='store_true' );

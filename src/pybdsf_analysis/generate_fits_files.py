@@ -19,7 +19,7 @@ from utils.distributed import DistributedUtils;
 import h5py;
 import utils.paths as pth;
 import logging;
-from pathlib import Path;
+from pathlib import PurePath;
 
 def get_h5_maxvals( outfile, infile ):
     with h5py.File(infile, "r") as f:
@@ -29,8 +29,8 @@ def get_h5_maxvals( outfile, infile ):
 def get_path_from_index( index: int, bin_size: int ):
     lower_bound = int( math.floor( ( index ) / bin_size ) * bin_size );
     upper_bound = int( math.ceil( ( index + 1 ) / bin_size ) * bin_size ) - 1;
-    postfix = [ f"{lower_bound}-{upper_bound}", f"image{index}.fits" ];
-    full_image_path = ( utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR ).joinpath( *postfix );
+    postfix = PurePath( *[ f"{lower_bound}-{upper_bound}", f"image{index}.fits" ] );
+    full_image_path = ( utils.paths.FITS_PARENT / utils.paths.GENERATED_SUBDIR ) / postfix;
     return full_image_path, postfix;
 
 def sample( parameter_args ):

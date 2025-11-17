@@ -21,6 +21,7 @@ import files.dataset;
 from files.dataset import LOFAR_DATA_PATH;
 from utils.distributed import DistributedUtils;
 from sklearn.preprocessing import PowerTransformer;
+from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 
 def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
     """
@@ -51,6 +52,8 @@ def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff
     """
     files.dataset.download_dataset();
 
+    dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR );
+
     if bin_sizes is None:
         bin_sizes = utils.parameters.BINS_ARRAY;
 
@@ -79,19 +82,9 @@ def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff
             
             flux_scaled = pt.transform( np.array( [ im_max ] ).reshape(-1, 1) )[ 0, 0 ];
 
-            hdu = fits.PrimaryHDU( image );
-            hdu.header[ "CTYPE1" ] = "RA---SIN";
-            hdu.header[ "CTYPE2" ] = "DEC--SIN";
-            hdu.header[ "CDELT1" ] = 1.5 * 0.00027778;
-            hdu.header[ "CDELT2" ] = 1.5 * 0.00027778;
-            hdu.header[ "CUNIT1" ] = "deg";
-            hdu.header[ "CUNIT2" ] = "deg";
-            hdu.header[ "FXSCLD" ] = flux_scaled;
-            hdul = fits.HDUList( [ hdu ] );
-
             #Create bins based on bin_sizes
-            filename = fits_output_dir;
             #make sure that there are no overextending bounds (e.g. 0-9999/9000-11999)
+            postfix = PurePath();
             lowest_upper_bound =  1e30;
             highest_lower_bound =-1e30;
             for bin_size in bin_sizes:
@@ -108,12 +101,11 @@ def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff
                 else:
                     lowest_upper_bound = upper_bound;  #new lowest upper bound
 
-                filename = filename / PurePath( f"{lower_bound}-{upper_bound}" );
+                postfix = postfix / f"{lower_bound}-{upper_bound}";
 
-            filename = filename / PurePath( f"image{i}.fits" );
-            if not filename.exists():
-                filename.parent.mkdir( parents=True, exist_ok=True ); #ensure path exists
-                hdul.writeto( filename, overwrite=True );
+            postfix = postfix / f"image{i}.fits";
+
+            dataset_analyzer.save_image_to_FITS( image, postfix, flux_scaled );
 
 def single_node_convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[int] | None = None ):
     du = DistributedUtils();

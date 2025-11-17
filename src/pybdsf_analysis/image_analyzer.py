@@ -186,8 +186,8 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
 
         Returns
         -------
-        tuple[ str... ]
-            The parts for the postfix as a tuple of strings. To add to a path, use .joinpath( *postfix );
+        PurePath
+            The parts for the postfix as a PurePath.
 
         Raises
         ------
@@ -195,7 +195,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             if self.subdir.parts[ -1 ] is not present in path.parts
         """
         last_index_of_subdir = len( path.parts ) - 1 - path.parts[ ::-1 ].index( self.subdir.parts[ -1 ] );
-        return path.parts[ (last_index_of_subdir + 1 ): ];
+        return PurePath( *path.parts[ (last_index_of_subdir + 1 ): ] );
 
     
     def get_pixel_values( self, return_nums: bool = False ):
@@ -324,18 +324,18 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 # e.g. when running analysis on data from LOFAR_dataset.h5 for items with extreme clipping
                 # like image10.fits
                 postfix = self.get_postfix( path );
-                flag_postfix = postfix[ :-1 ] + ( postfix[ -1 ] + '.flag', );
+                flag_postfix = PurePath( *( postfix.parts[ :-1 ] + ( postfix.parts[ -1 ] + '.flag', ) ) );
 
-                log_file = self.log_dir / self.subdir.joinpath( *postfix );
+                log_file = self.log_dir / self.subdir / postfix;
 
                 write_catalog = self.write_catalog;
                 if write_catalog:
-                    catalog_outfile_flag = self.catalog_dir / self.subdir.joinpath( *flag_postfix );
+                    catalog_outfile_flag = self.catalog_dir / self.subdir / flag_postfix;
                     if catalog_outfile_flag.exists():
                         write_catalog = False;
-                export_images = [];
+                export_images: list[ str ] = [];
                 for img_type in self.export_images:
-                    image_outfile_flag = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *flag_postfix );
+                    image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix;
                     if not image_outfile_flag.exists():
                         export_images.append( img_type );
                 
@@ -348,28 +348,28 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 try:
                     img: bdsf.image.Image = bdsf.process_image(
                         str( path ),
-                        outdir=(self.log_dir / self.subdir.joinpath( *postfix ).parent),
+                        outdir=(self.log_dir / self.subdir / postfix.parent),
                         **self.process_args
                     );
                 except ValueError:
                     self.logger.error( f'Image {str( path )} failed to process' );
                     return;
                 for img_type in export_images:
-                    image_outfile = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *postfix );
-                    image_outfile_flag = self.img_dir / self.subdir / PurePath( img_type ).joinpath( *flag_postfix );
+                    image_outfile = self.img_dir / self.subdir / img_type / postfix;
+                    image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix;
                     image_outfile.parent.mkdir( parents=True, exist_ok=True );
                     img.export_image( outfile=str( image_outfile ), **self.export_img_args[ img_type ] );
                     image_outfile_flag.touch();
                 if write_catalog:
-                    catalog_outfile = self.catalog_dir / self.subdir.joinpath( *postfix );
-                    catalog_outfile_flag = self.catalog_dir / self.subdir.joinpath( *flag_postfix );
+                    catalog_outfile = self.catalog_dir / self.subdir / postfix;
+                    catalog_outfile_flag = self.catalog_dir / self.subdir / flag_postfix;
                     catalog_outfile.parent.mkdir( parents=True, exist_ok=True );
                     img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args );
                     catalog_outfile_flag.touch();
             else:
                 self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) );
     
-    def save_image_to_FITS( self, image: np.ndarray, postfix: str, fscaled: float, overwrite: bool = True ):
+    def save_image_to_FITS( self, image: np.ndarray, postfix: PurePath, fscaled: float, overwrite: bool = True ):
         """
         Save a numpy 2d array to a fits file under "[fits_input_dir]/[subdir]/"
 
@@ -397,7 +397,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         hdu.header[ "CUNIT2" ] = "deg";
         hdu.header[ "FXSCLD" ] = fscaled;
         hdul = fits.HDUList( [ hdu ] );
-        outfile = self.fits_input_dir / self.subdir.joinpath( *postfix );
+        outfile = self.fits_input_dir / self.subdir / postfix;
         outfile.parent.mkdir( parents=True, exist_ok=True );
         hdul.writeto( str( outfile ), overwrite=overwrite );
 

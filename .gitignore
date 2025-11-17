@@ -23,6 +23,9 @@ dr2_cutouts*/
 pybdsf*/
 !src/pybdsf_analysis/
 
+# Local file parameters
+src/utils/parameters_local_override.py
+
 # Temporary files
 *.log
 *.out

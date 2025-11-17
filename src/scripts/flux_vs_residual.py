@@ -4,10 +4,9 @@ from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 import numpy as np;
 from pathlib import PurePath;
 import matplotlib.pyplot as plt;
+from utils.distributed import DistributedUtils;
 
-if __name__ == '__main__':
-    pybdsf_analysis.pybdsf_run_analysis.analyze_everything();
-
+def plot_flux_vs_residuals():
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
         resid_analyzer = ImageAnalyzer( f"{subdir}/gaus_resid", fits_input_dir=utils.paths.PYBDSF_EXPORT_IMAGE_PARENT, write_catalog=False );
 
@@ -34,3 +33,11 @@ if __name__ == '__main__':
     plt.title( 'Scaled flux vs summed residuals' );
     plt.show();
     plt.savefig( 'scatter.png' );
+
+
+if __name__ == '__main__':
+    pybdsf_analysis.pybdsf_run_analysis.analyze_everything();
+
+    du = DistributedUtils();
+    du.last_task_only( 'plot_flux_vs_residuals', plot_flux_vs_residuals );
+

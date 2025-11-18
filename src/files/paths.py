@@ -36,7 +36,8 @@ def make_folders():
         if not f.exists():
             f.mkdir()
         for g in [pth.DATASET_SUBDIR, pth.GENERATED_SUBDIR]:
-            if not (f/g).exists():
+            # ignore FITS_PARENT/DATASET_SUBDIR because its existence can be used to determine if the dataset should be recreated
+            if not (f/g).exists() and not ( f == pth.FITS_PARENT and g == pth.DATASET_SUBDIR ):
                 (f/g).mkdir()
 
 

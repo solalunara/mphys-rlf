@@ -39,20 +39,20 @@ class OpticalCatalogueDownloader:
         :param save_path: The path to save the downloaded FITS file.
         """
         if os.path.exists(save_path):
-            self.logger.info(f"Optical catalogue already exists at {save_path}. Skipping download.")
+            self.logger.info(f'Optical catalogue already exists at {save_path}. Skipping download.')
             return
 
         url = "https://lofar-surveys.org/public/DR2/catalogues/combined-release-v1.2-LM_opt_mass.fits"
-        self.logger.info(f"Downloading optical catalogue from {url}...")
+        self.logger.info(f'Downloading optical catalogue from {url}...')
         response = requests.get(url, stream=True)
 
         if response.status_code == 200:
             with open(save_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            self.logger.info(f"Optical catalogue downloaded and saved to {save_path}.")
+            self.logger.info(f'Optical catalogue downloaded and saved to {save_path}.')
         else:
-            self.logger.error(f"Failed to download optical catalogue. Status code: {response.status_code}")
+            self.logger.error(f'Failed to download optical catalogue. Status code: {response.status_code}')
 
     def load_optical_catalogue(self, file_path="optical_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
         """

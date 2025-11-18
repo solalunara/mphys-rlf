@@ -181,7 +181,7 @@ class HistogramErrorDrawer:
         drawn_histogram, bin_data, _ = ax.hist( data, density=density, log=log, histtype='step', bins=bins, label=label, color=color, range=range );
         bin_width = bin_data[ 1 ] - bin_data[ 0 ];
         bin_centres = bin_data[ :-1 ] + bin_width/2.0;
-        conf_interval = astropy.stats.poisson_conf_interval( hist, sigma=1.0 );
+        conf_interval = astropy.stats.poisson_conf_interval( hist, sigma=1.0, interval='frequentist-confidence' );
 
         yerr = 0;
         if log:

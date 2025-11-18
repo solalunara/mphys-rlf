@@ -32,6 +32,28 @@ class OpticalCatalogueDownloader:
         # Set up logging
         self.logger = utils.logging.get_logger("optical catalogue downloader", logging.DEBUG)
 
+    def download_optical_catalogue(self, save_path="optical_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
+        """
+        Downloads the optical catalogue FITS file from the LOFAR website if it does not already exist.
+
+        :param save_path: The path to save the downloaded FITS file.
+        """
+        if os.path.exists(save_path):
+            self.logger.info(f"Optical catalogue already exists at {save_path}. Skipping download.")
+            return
+
+        url = "https://lofar-surveys.org/public/DR2/catalogues/combined-release-v1.2-LM_opt_mass.fits"
+        self.logger.info(f"Downloading optical catalogue from {url}...")
+        response = requests.get(url, stream=True)
+
+        if response.status_code == 200:
+            with open(save_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            self.logger.info(f"Optical catalogue downloaded and saved to {save_path}.")
+        else:
+            self.logger.error(f"Failed to download optical catalogue. Status code: {response.status_code}")
+
     def load_optical_catalogue(self, file_path="optical_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
         """
         Loads the optical catalogue from a FITS file and filters for resolved items. This turns the ~4.1mil items from the
@@ -103,6 +125,9 @@ class OpticalCatalogueDownloader:
         task_count = du.get_task_count()
         task_id = du.get_task_id()
         self.logger.debug(f'Task ID: {task_id}, Task Count: {task_count}')
+
+        # Confirm the optical catalogue is downloaded
+        self.download_optical_catalogue()
 
         optical_catalogue = self.load_optical_catalogue()
         opt_positions = self.get_optical_positions(optical_catalogue)

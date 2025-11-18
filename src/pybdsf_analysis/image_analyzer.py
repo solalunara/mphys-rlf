@@ -279,8 +279,6 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         ( task_id / task_count * len( files ) ) to ( ( task_id + 1 ) / task_count * len( files ) )
         """
         du = DistributedUtils();
-        task_count = du.get_task_count();
-        task_id = du.get_task_id();
 
         n_cpus = os.environ.get( "N_CPUS", 1 );
         if isinstance( n_cpus, str ):
@@ -292,10 +290,8 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
 
         #distribute across multiple tasks
         n_files = len( files );
-        bin_start = int( task_id / task_count * n_files );
-        bin_end = int( ( task_id + 1 ) / task_count * n_files );
-        if task_id + 1 == task_count:
-            bin_end = n_files; #just in case the float->int conversion is messy
+        bin_start = du.get_bin_start( n_files );
+        bin_end = du.get_bin_end( n_files );
         files = files[ bin_start:bin_end ];
 
         p = NonDaemonPool( processes=n_cpus );
@@ -388,6 +384,11 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         overwrite : bool = True
             Whether or not to overwrite the file if it already exists
         """
+        # First, add some random noise to the image so pybdsf doesn't fail
+        z = np.random.normal( 0, scale=min( image.max(), 1 ) * 1e-2, size=image.shape );
+        image += z;
+
+
         hdu = fits.PrimaryHDU( image );
         hdu.header[ "CTYPE1" ] = "RA---SIN";
         hdu.header[ "CTYPE2" ] = "DEC--SIN";

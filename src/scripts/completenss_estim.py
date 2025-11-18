@@ -12,6 +12,7 @@ import astropy.stats;
 import pandas as pd;
 import matplotlib.pyplot as plt;
 
+rms_LOFAR = 71e-6;
 
 def get_noise(data):
     """
@@ -44,12 +45,20 @@ def masking(fits_data, threshold_level = 5.0):
 
     return fits_data_nr
 
+def create_noise_LOFAR(shape=(80,80), rms=rms_LOFAR):
+    """
+    Create a 2D patch of Gaussian noise with given RMS.
+    """
+    return np.random.normal(loc=0.0, scale=rms, size=shape)
+
 def get_completeness_estim():
 
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
         data_files = RecursiveFileAnalyzer( utils.paths.FITS_PARENT / subdir );
         log_analyzer = LogAnalyzer( subdir );
         fmr, fmr_inds = log_analyzer.fmr_data( True );
+        sigma_clipped_means = np.array( log_analyzer.sigma_clipped_mean_array() );
+        sigma_clipped_rms = np.array( log_analyzer.sigma_clipped_rms_array() );
         fmr = np.array( fmr );
         data_unwrapped_files = data_files.get_unwrapped_list( pattern=r'.*?image(\d+)\.fits$', return_nums=True );
 
@@ -65,53 +74,63 @@ def get_completeness_estim():
         # Make it so fmr and images match indices
         intersect, comm1, comm2 = np.intersect1d( fmr_inds, img_inds, return_indices=True );
         fmr = fmr[ comm1 ];
+        sigma_clipped_means = sigma_clipped_means[ comm1 ];
+        sigma_clipped_rms = sigma_clipped_rms[ comm1 ];
         images = images[ comm2 ];
 
         residual_files = RecursiveFileAnalyzer( utils.paths.PYBDSF_EXPORT_IMAGE_PARENT / subdir / 'gaus_resid' );
-        residual_image_files = residual_files.get_unwrapped_list( pattern=r'.*?\.fits$' );
-        residual_images = np.empty( (len( residual_image_files ), 80, 80) );
+        residual_image_files = residual_files.get_unwrapped_list( pattern=r'.*?image(\d+)\.fits$', return_nums=True );
+        residual_images = np.empty( (len( residual_image_files ), 80, 80), dtype=float );
+        residual_indexes = np.empty( (len( residual_image_files )), dtype=int );
         i = 0;
         for file in tqdm( residual_image_files, desc='Gathering file data...' ):
-            with fits.open( str( file ) ) as hdul:
+            with fits.open( str( file[ 0 ] ) ) as hdul:
                 residual_images[ i ] = hdul[ 0 ].data;
+            residual_indexes[ i ] = file[ 1 ];
             i += 1;
+        
+        # Make it so we can assume residual_images[ i ] is the residual of images[ i ]
+        residual_images = residual_images[ np.isin( residual_indexes, intersect, assume_unique=True ) ];
 
         NUM_MOCKS = 100;
-        NUM_SCALE_FACTORS = 100;
-        mock_fluxes = [ None ] * NUM_MOCKS * NUM_SCALE_FACTORS;
-        detectable = [ None ] * NUM_MOCKS * NUM_SCALE_FACTORS;
-        for i in range( NUM_MOCKS ):
-            flux_scale_factors = scipy.stats.loguniform.rvs( 10**(-5), 10**3, size=NUM_SCALE_FACTORS );
+        NUM_SCALE_FACTORS = 200;
+        mock_fluxes = np.empty( (NUM_MOCKS, NUM_SCALE_FACTORS), dtype=float );
+        detectable = np.empty( (NUM_MOCKS, NUM_SCALE_FACTORS), dtype=bool );
+        for i in tqdm( range( NUM_MOCKS ), desc='Calculating mock images' ):
+            flux_scale_factors = scipy.stats.loguniform.rvs( 10**(-3), 10**(1), size=NUM_SCALE_FACTORS );
             # Mix a random data image with a random residual image
             random_image = int( random.random() * images.shape[ 0 ] );
-            data_image = images[ random_image ];
+            data_image = images[ random_image ] * 1000; # make everything mJy units
             fmr_image = fmr[ random_image ];
+            flux = fmr_image[ 0 ] * 1000; # make everything mJy units
+            rms = sigma_clipped_rms[ random_image ];
 
             for j in range( len( flux_scale_factors ) ):
                 flux_scale_factor = flux_scale_factors[ j ];
-                s_mock = flux_scale_factor * fmr_image[ 0 ];
-                mock_fluxes[ i * NUM_MOCKS + j ] = s_mock;
+                s_mock = flux_scale_factor * flux;
+                mock_fluxes[ i, j ] = s_mock;
                 mock_data = flux_scale_factor * data_image;
 
                 rms_ori = get_noise( data_image );
                 rms_mock = get_noise( mock_data );
 
                 random_residual = int( random.random() * residual_images.shape[ 0 ] );
-                noise_patch = residual_images[ random_residual ];
+                noise_patch = create_noise_LOFAR( rms=rms );
+                #noise_patch = residual_images[ random_image ]
 
                 sim_data = noise_patch + mock_data;
                 clean_data = masking( sim_data, threshold_level = 3 );
 
                 peak_flux = np.max( sim_data );
-                threshold = 5 * rms_ori;
-                detectable[ i * NUM_MOCKS + j ] = peak_flux >= threshold;
+                threshold = 5 * rms;
+                detectable[ i, j ] = peak_flux >= threshold;
 
         test_mock = pd.DataFrame()
-        test_mock['mock_flux'] = mock_fluxes
-        test_mock['detectable'] = detectable
+        test_mock['mock_flux'] = mock_fluxes.ravel()
+        test_mock['detectable'] = detectable.ravel()
 
         # Define flux bins
-        flux_bins = np.logspace(-5, 3, num=25)  
+        flux_bins = np.logspace(-2, 5, num=25)  
         bin_centers = 0.5 * (flux_bins[1:] + flux_bins[:-1])
 
         # Bin and count

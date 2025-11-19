@@ -14,8 +14,11 @@ import astropy.stats;
 import pandas as pd;
 import matplotlib.pyplot as plt;
 from pathlib import Path;
+from pybdsf_analysis.image_analyzer import ImageAnalyzer;
 
 rms_LOFAR = 71e-6;
+beam_width_LOFAR = ImageAnalyzer.LOFAR_process_arg_defaults[ 'process_beam' ][ :-1 ];
+beam_area_LOFAR = beam_width_LOFAR[ 0 ] * beam_width_LOFAR[ 1 ];
 
 def get_noise(data):
     """
@@ -63,16 +66,20 @@ def get_completeness_estim():
         model_fluxes = np.array( model_fluxes ) * 1000; #Units of mJy
         sigma_clipped_means = np.array( log_analyzer.for_each( la.get_sigma_clipped_mean ) );
         sigma_clipped_rms = np.array( log_analyzer.for_each( la.get_sigma_clipped_rms ) );
-        images, img_inds = data_files.for_each( rfa.get_fits_primaryhdu_data, pattern=r'.*?image(\d+)\.fits$', return_nums=True );
+        images, data_inds = data_files.for_each( rfa.get_fits_primaryhdu_data, pattern=r'.*?image(\d+)\.fits$', return_nums=True );
+        delt1 = np.array( data_files.for_each( rfa.get_fits_primaryhdu_header, pattern=r'.*?image(\d+)\.fits$', kwargs=dict( key='CDELT1' ) ) );
+        delt2 = np.array( data_files.for_each( rfa.get_fits_primaryhdu_header, pattern=r'.*?image(\d+)\.fits$', kwargs=dict( key='CDELT2' ) ) );
         images = np.array( images );
 
         
         # Make it so fmr and images match indices
-        intersect, comm1, comm2 = np.intersect1d( log_analyzer_inds, img_inds, return_indices=True );
+        intersect, comm1, comm2 = np.intersect1d( log_analyzer_inds, data_inds, return_indices=True );
         model_fluxes = model_fluxes[ comm1 ];
         sigma_clipped_means = sigma_clipped_means[ comm1 ];
         sigma_clipped_rms = sigma_clipped_rms[ comm1 ];
         images = images[ comm2 ];
+        delt1 = delt1[ comm2 ];
+        delt2 = delt2[ comm2 ];
 
         residual_files = RecursiveFileAnalyzer( utils.paths.PYBDSF_EXPORT_IMAGE_PARENT / subdir / 'gaus_resid' );
         residual_images, residual_indexes = residual_files.for_each( rfa.get_fits_primaryhdu_data, pattern=r'.*?image(\d+)\.fits$', return_nums=True )
@@ -89,9 +96,15 @@ def get_completeness_estim():
             flux_scale_factors = scipy.stats.loguniform.rvs( 10**(-3), 10**(1), size=NUM_SCALE_FACTORS );
             # Mix a random data image with a random residual image
             random_image = int( random.random() * images.shape[ 0 ] );
-            data_image = images[ random_image ] * 1000; # make everything mJy units
             model_flux = model_fluxes[ random_image ];
             rms = sigma_clipped_rms[ random_image ];
+
+            this_image_delt1 = delt1[ random_image ];
+            this_image_delt2 = delt2[ random_image ];
+            area_per_pix = this_image_delt1 * this_image_delt2;
+
+            # Jy/beam = 1000 mJy/pix beam/pix = 1000 beam/area area/pix mJy/pix
+            data_image = images[ random_image ] * 1000 * beam_area_LOFAR / area_per_pix; # Jy/beam -> mJy/pix
 
             for j in range( len( flux_scale_factors ) ):
                 flux_scale_factor = flux_scale_factors[ j ];

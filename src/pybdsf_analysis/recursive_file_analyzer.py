@@ -160,8 +160,8 @@ class RecursiveFileAnalyzer:
                 return_numbers[ i ] = file[ 1 ];
                 self.logger.debug( f"Reading file {file[ 1 ]}: {file[ 0 ]}" );
             else:
-                return_values[ i ] = function( file );
-                self.logger.debug( f"Reading file {file}", *args, **kwargs );
+                return_values[ i ] = function( file, *args, **kwargs );
+                self.logger.debug( f"Reading file {file}" );
             i += 1;
 
         if return_nums:

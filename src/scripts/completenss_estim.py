@@ -7,10 +7,13 @@ import utils.paths;
 from utils.distributed import DistributedUtils;
 import random;
 from pybdsf_analysis.log_analyzer import LogAnalyzer;
+import pybdsf_analysis.log_analyzer as la;
+import pybdsf_analysis.recursive_file_analyzer as rfa;
 from tqdm import tqdm;
 import astropy.stats;
 import pandas as pd;
 import matplotlib.pyplot as plt;
+from pathlib import Path;
 
 rms_LOFAR = 71e-6;
 
@@ -56,44 +59,30 @@ def get_completeness_estim():
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
         data_files = RecursiveFileAnalyzer( utils.paths.FITS_PARENT / subdir );
         log_analyzer = LogAnalyzer( subdir );
-        fmr, fmr_inds = log_analyzer.fmr_data( True );
-        sigma_clipped_means = np.array( log_analyzer.sigma_clipped_mean_array() );
-        sigma_clipped_rms = np.array( log_analyzer.sigma_clipped_rms_array() );
-        fmr = np.array( fmr );
-        data_unwrapped_files = data_files.get_unwrapped_list( pattern=r'.*?image(\d+)\.fits$', return_nums=True );
+        model_fluxes, log_analyzer_inds = log_analyzer.for_each( la.get_model_flux, return_nums=True );
+        model_fluxes = np.array( model_fluxes ) * 1000; #Units of mJy
+        sigma_clipped_means = np.array( log_analyzer.for_each( la.get_sigma_clipped_mean ) );
+        sigma_clipped_rms = np.array( log_analyzer.for_each( la.get_sigma_clipped_rms ) );
+        images, img_inds = data_files.for_each( rfa.get_fits_primaryhdu_data, pattern=r'.*?image(\d+)\.fits$', return_nums=True );
+        images = np.array( images );
 
-        images = np.empty( (len( data_unwrapped_files ), 80, 80) );
-        img_inds = np.empty( (len( data_unwrapped_files )) );
-        i = 0;
-        for file in tqdm( data_unwrapped_files, desc='Gathering file data...' ):
-            with fits.open( str( file[ 0 ] ) ) as hdul:
-                images[ i ] = hdul[ 0 ].data;
-            img_inds[ i ] = file[ 1 ];
-            i += 1;
         
         # Make it so fmr and images match indices
-        intersect, comm1, comm2 = np.intersect1d( fmr_inds, img_inds, return_indices=True );
-        fmr = fmr[ comm1 ];
+        intersect, comm1, comm2 = np.intersect1d( log_analyzer_inds, img_inds, return_indices=True );
+        model_fluxes = model_fluxes[ comm1 ];
         sigma_clipped_means = sigma_clipped_means[ comm1 ];
         sigma_clipped_rms = sigma_clipped_rms[ comm1 ];
         images = images[ comm2 ];
 
         residual_files = RecursiveFileAnalyzer( utils.paths.PYBDSF_EXPORT_IMAGE_PARENT / subdir / 'gaus_resid' );
-        residual_image_files = residual_files.get_unwrapped_list( pattern=r'.*?image(\d+)\.fits$', return_nums=True );
-        residual_images = np.empty( (len( residual_image_files ), 80, 80), dtype=float );
-        residual_indexes = np.empty( (len( residual_image_files )), dtype=int );
-        i = 0;
-        for file in tqdm( residual_image_files, desc='Gathering file data...' ):
-            with fits.open( str( file[ 0 ] ) ) as hdul:
-                residual_images[ i ] = hdul[ 0 ].data;
-            residual_indexes[ i ] = file[ 1 ];
-            i += 1;
+        residual_images, residual_indexes = residual_files.for_each( rfa.get_fits_primaryhdu_data, pattern=r'.*?image(\d+)\.fits$', return_nums=True )
+        residual_images = np.array( residual_images );
         
         # Make it so we can assume residual_images[ i ] is the residual of images[ i ]
         residual_images = residual_images[ np.isin( residual_indexes, intersect, assume_unique=True ) ];
 
-        NUM_MOCKS = 100;
-        NUM_SCALE_FACTORS = 200;
+        NUM_MOCKS = 50;
+        NUM_SCALE_FACTORS = 100;
         mock_fluxes = np.empty( (NUM_MOCKS, NUM_SCALE_FACTORS), dtype=float );
         detectable = np.empty( (NUM_MOCKS, NUM_SCALE_FACTORS), dtype=bool );
         for i in tqdm( range( NUM_MOCKS ), desc='Calculating mock images' ):
@@ -101,13 +90,12 @@ def get_completeness_estim():
             # Mix a random data image with a random residual image
             random_image = int( random.random() * images.shape[ 0 ] );
             data_image = images[ random_image ] * 1000; # make everything mJy units
-            fmr_image = fmr[ random_image ];
-            flux = fmr_image[ 0 ] * 1000; # make everything mJy units
+            model_flux = model_fluxes[ random_image ];
             rms = sigma_clipped_rms[ random_image ];
 
             for j in range( len( flux_scale_factors ) ):
                 flux_scale_factor = flux_scale_factors[ j ];
-                s_mock = flux_scale_factor * flux;
+                s_mock = flux_scale_factor * model_flux;
                 mock_fluxes[ i, j ] = s_mock;
                 mock_data = flux_scale_factor * data_image;
 

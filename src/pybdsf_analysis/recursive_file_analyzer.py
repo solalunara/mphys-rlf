@@ -12,6 +12,20 @@ import logging;
 from utils.logging import get_logger;
 from tqdm import tqdm;
 import re;
+from astropy.io import fits;
+
+# Utility functions for for_each
+def get_fits_primaryhdu_data( path: Path ):
+    with fits.open( str( path ) ) as hdul:
+        data = hdul[ 0 ].data;
+    return data;
+def get_fits_primaryhdu_header( path: Path, key: str | None = None ):
+    with fits.open( str( path ) ) as hdul:
+        if key is not None:
+            header = hdul[ 0 ].header[ key ];
+        else:
+            header = hdul[ 0 ].header;
+    return header;
 
 class RecursiveFileAnalyzer:
     """
@@ -93,7 +107,7 @@ class RecursiveFileAnalyzer:
             return return_value;
         return None;
     
-    def for_each( self, function, path: Path | None = None, pattern: str | None = None, progress_bar: bool = False, numeric_range: tuple[int,int] | None = None, return_nums: bool = False ):
+    def for_each( self, function, pattern: str | None = None, progress_bar_desc: str | None = None, numeric_range: tuple[int,int] | None = None, return_nums: bool = False, args: list | None = None, kwargs: dict | None = None ):
         """
         A method to perform a generic function on all files within a directory given by path, or
         to read path as a file and perform the generic function on its contents, with optional file extension filtering
@@ -102,44 +116,52 @@ class RecursiveFileAnalyzer:
         ----------
         function : callable
             The function which will be called on each file in path recursively
-        path : Path | None = None
-            The path to do the for_each on, or None to do the for_each on self.path
         pattern : str | None = None
             The regex pattern to search for. Items not matching will have the function operate on them. If None, operate on all.
-        progress_bar : bool = False
-            Whether or not to show a progress bar for the function operating on each file
+        progress_bar_desc : str | None = None
+            Description to give the progress bar, or none to not show a progress bar
         numeric_range: int | None = None
             If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
             group into an integer. If the integer is within the numeric range (inclusive begin, exclusive end), 
             match, otherwise don't match. None matches all.
         return_nums: bool = False
             If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
-            group into an integer. If return_nums is true, this will be returned with the path such that the return
-            type of this function is of shape ( len( files ), 2 )
+            group into an integer.
+
+        args : list[ Any ] | None = None
+            arguments to pass on to the called function
+        kwargs : dict[ str, Any ] | None = None
+            keyword arguments to pass on to the called function
 
         Returns
         -------
-        np.ndarray
-            returns a list of the file return values within the path directory self.path, of shape ( len( files ) ) if
-            return_nums is False else ( len( files ), 2 )
+        list[ function( <b>: ) ]</b>
+            returns a list of the file return values within the path directory self.path, of length files
+        list[ int ] (optional)
+            if return_nums, also returns a list of integers for the values captured by the first capture group in pattern from the file path str
         """
-        files = self.get_unwrapped_list( path, pattern, numeric_range, return_nums );
+        if args is None:
+            args = [];
+        if kwargs is None:
+            kwargs = dict();
+
+        files = self.get_unwrapped_list( self.path, pattern, numeric_range, return_nums );
         return_values = [ None ] * len( files );
         if return_nums:
             return_numbers = np.empty( (len( files )) );
         i = 0;
-        if progress_bar:
-            arr = tqdm( files, desc='Operating...', total=len( files ) );
+        if progress_bar_desc is not None:
+            arr = tqdm( files, desc=progress_bar_desc, total=len( files ) );
         else:
             arr = files;
         for file in arr:
             if return_nums:
-                return_values[ i ] = function( file[ 0 ] );
+                return_values[ i ] = function( file[ 0 ], *args, **kwargs );
                 return_numbers[ i ] = file[ 1 ];
                 self.logger.debug( f"Reading file {file[ 1 ]}: {file[ 0 ]}" );
             else:
                 return_values[ i ] = function( file );
-                self.logger.debug( f"Reading file {file}" );
+                self.logger.debug( f"Reading file {file}", *args, **kwargs );
             i += 1;
 
         if return_nums:

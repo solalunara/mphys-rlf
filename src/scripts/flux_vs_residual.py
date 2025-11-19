@@ -5,19 +5,22 @@ import numpy as np;
 from pathlib import PurePath;
 import matplotlib.pyplot as plt;
 from utils.distributed import DistributedUtils;
+import pybdsf_analysis.recursive_file_analyzer as rfa;
 
 def plot_flux_vs_residuals():
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
         resid_analyzer = ImageAnalyzer( f"{subdir}/gaus_resid", fits_input_dir=utils.paths.PYBDSF_EXPORT_IMAGE_PARENT, write_catalog=False );
 
         # Delta - summed clipped residuals, per image
-        resid_values, resid_indexes = resid_analyzer.get_pixel_values( True );
+        resid_values, resid_indexes = resid_analyzer.for_each( rfa.get_fits_primaryhdu_data, return_nums=True );
+        resid_values = np.array( resid_values );
         rv_clipped = np.where( resid_values > 0, resid_values, 0 );
-        delta = np.sum( rv_clipped, axis=(1,2) );
+        delta = np.sum( rv_clipped, axis=tuple( [ i for i in range( 1, len( resid_values.shape ) ) ] ) );
 
         # Scaled flux 
         analyzer = ImageAnalyzer( subdir, write_catalog=False );
-        scaled_flux, scaled_indexes = analyzer.get_scaled_flux( True );
+        scaled_flux, scaled_indexes = analyzer.for_each( rfa.get_fits_primaryhdu_header, return_nums=True, kwargs=dict( key='FXSCLD' ) );
+        scaled_flux = np.array( scaled_flux );
 
         # Combined points
         intersect, comm1, comm2 = np.intersect1d( resid_indexes, scaled_indexes, return_indices=True );

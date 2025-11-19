@@ -171,6 +171,42 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         #Set process arg defaults to project defaults if nothing passed
         for key, val in ImageAnalyzer.LOFAR_process_arg_defaults.items():
             self.process_args[ key[ len( 'process_' ): ] ] = self.process_args.get( key[ len( 'process_' ): ], val );
+
+    # Override default pattern
+    def for_each( self, function, pattern: str | None = r'.*?image(\d+)\.fits$', progress_bar_desc: str | None = None, numeric_range: tuple[int,int] | None = None, return_nums: bool = False, args: list | None = None, kwargs: dict | None = None ):
+        """
+        A method to perform a generic function on all files within the image directory and return the output, along with optionally a number as
+        gathered from the first capture group in pattern applied to the file paths.
+
+        Parameters
+        ----------
+        function : callable
+            The function which will be called on each file in path recursively
+        pattern : str | None = r'.*?image(\\d)\\.fits$'
+            The regex pattern to search for. Items not matching will have the function operate on them. If None, operate on all.
+        progress_bar_desc : str | None = None
+            Description to give the progress bar, or none to not show a progress bar
+        numeric_range: int | None = None
+            If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
+            group into an integer. If the integer is within the numeric range (inclusive begin, exclusive end), 
+            match, otherwise don't match. None matches all.
+        return_nums: bool = False
+            If there is a regex pattern to search for and it has a capture group, attempt to parse the capture
+            group into an integer.
+
+        args : list[ Any ] | None = None
+            arguments to pass on to the called function
+        kwargs : dict[ str, Any ] | None = None
+            keyword arguments to pass on to the called function
+
+        Returns
+        -------
+        list[ function( <b>: ) ]</b>
+            returns a list of the file return values within the path directory self.path / self.subdir, of length files
+        list[ int ] (optional)
+            if return_nums, also returns a list of integers for the values captured by the first capture group in pattern from the file path str
+        """
+        return super().for_each( function, pattern, progress_bar_desc, numeric_range, return_nums, args, kwargs );
     
     def get_postfix( self, path: Path ):
         """
@@ -197,78 +233,6 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         last_index_of_subdir = len( path.parts ) - 1 - path.parts[ ::-1 ].index( self.subdir.parts[ -1 ] );
         return PurePath( *path.parts[ (last_index_of_subdir + 1 ): ] );
 
-    
-    def get_pixel_values( self, return_nums: bool = False ):
-        """
-        A simple function to get all pixel values of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
-
-        Parameters
-        ----------
-        return_nums : bool
-            Whether or not to include the numeric value captured from the filename in the results.
-
-        Returns
-        -------
-        np.ndarray
-            an array of pixel values of shape (len(files), 80, 80) if return_nums is false else (len(files), 80, 80)
-        np.ndarray (optional)
-            an array of indices captured from the filenames of shape (len(files))
-        """
-        input_subdir = self.fits_input_dir / self.subdir;
-        files = self.get_unwrapped_list( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
-        value_list = np.empty( (len( files ), 80, 80) );
-        if return_nums:
-            index_list = np.empty( (len( files )) );
-        i = 0;
-        for file in tqdm( files, desc='Collecting Pixel Values...' ):
-            if return_nums:
-                with fits.open( str( file[ 0 ] ) ) as hdul:
-                    value_list[ i ] = hdul[ 0 ].data;
-                index_list[ i ] = file[ 1 ];
-            else:
-                with fits.open( str( file ) ) as hdul:
-                    value_list[ i ] = hdul[ 0 ].data;
-            i += 1;
-        if return_nums:
-            return value_list, index_list;
-        else: return value_list;
-
-    def get_scaled_flux( self, return_nums: bool = False ):
-        """
-        Get the scaled fluxes of all images in "[fits_input_dir]/[subdir]/\*\*.fits"
-
-        Parameters
-        ----------
-        return_nums : bool
-            Whether or not to include the numeric value captured from the filename in the results.
-
-        Returns
-        -------
-        np.ndarray
-            an array of scaled fluxes of shape (len(files))
-        np.ndarray (optional)
-            an array of indices captured from the filenames of shape (len(files))
-        """
-        input_subdir = self.fits_input_dir / self.subdir;
-        files = self.get_unwrapped_list( input_subdir, r'.*?image(\d+)\.fits$', return_nums=return_nums );
-        value_list = np.empty( len( files ) );
-        if return_nums:
-            index_list = np.empty( len( files ) );
-        i = 0;
-        for file in tqdm( files, desc='Collecting Scaled Fluxes...' ):
-            if return_nums:
-                with fits.open( str( file[ 0 ] ) ) as hdul:
-                    value_list[ i ] = hdul[ 0 ].header[ 'FXSCLD' ];
-                    index_list[ i ] = file[ 1 ];
-            else:
-                with fits.open( str( file ) ) as hdul:
-                    value_list[ i ] = hdul[ 0 ].header[ 'FXSCLD' ];
-            i += 1;
-        if return_nums:
-            return value_list, index_list;
-        else: return value_list;
-
-    
     def analyze_all_FITS_in_input( self ):
         """
         Recursively analyze all of "[fits_input_dir]/[subdir]/\*\*.fits"

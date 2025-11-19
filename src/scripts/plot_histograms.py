@@ -8,6 +8,8 @@ import utils.paths;
 from utils.distributed import DistributedUtils;
 import logging;
 from pybdsf_analysis.log_analyzer import LogAnalyzer;
+import pybdsf_analysis.log_analyzer as la;
+import pybdsf_analysis.recursive_file_analyzer as rfa;
 import numpy as np;
 
 def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
@@ -24,13 +26,13 @@ def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
     dataset_logs = LogAnalyzer( utils.paths.DATASET_SUBDIR );
     generated_logs = LogAnalyzer( utils.paths.GENERATED_SUBDIR );
 
-    dataset_data = np.array( dataset_logs.fmr_data() );
-    generated_data = np.array( generated_logs.fmr_data() );
+    dataset_data = np.array( dataset_logs.for_each( la.get_flux_mean_rms ) );
+    generated_data = np.array( generated_logs.for_each( la.get_flux_mean_rms ) );
 
     dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR, log_level=log_level );
-    dataset_pix_vals = dataset_analyzer.get_pixel_values().ravel();
+    dataset_pix_vals = np.array( dataset_analyzer.for_each( rfa.get_fits_primaryhdu_data ) ).ravel();
     generated_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR, log_level=log_level );
-    generated_pix_vals = generated_analyzer.get_pixel_values().ravel();
+    generated_pix_vals = np.array( generated_analyzer.for_each( rfa.get_fits_primaryhdu_data ) ).ravel();
 
     #Use numpy to get a histogram array of the values
     #and matplotlib to plot a log graph from the raw data

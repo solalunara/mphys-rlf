@@ -160,7 +160,13 @@ class OpticalCatalogueDownloader:
             if os.path.exists(f"optical_catalogue/dr2_cutouts_download/cutout{i}.fits"):
                 continue
             print(f'Downloading image {i} for RA={ra}, DEC={dec} degrees')
-            self.get_cutout(f"optical_catalogue/dr2_cutouts_download/cutout{i}.fits", f"{ra} {dec}")
+
+            try:
+                self.get_cutout(f"optical_catalogue/dr2_cutouts_download/cutout{i}.fits", f"{ra} {dec}")
+            except Exception as e:
+                self.logger.error(f"Error downloading cutout for image {i} (RA={ra}, DEC={dec}): {e}")
+                with open("optical_catalogue/download_errors.log", "a") as log_file:
+                    log_file.write(f"Image {i}: RA={ra}, DEC={dec}, Error: {e}\n")
 
 
 if __name__ == "__main__":

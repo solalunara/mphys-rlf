@@ -127,14 +127,19 @@ class OpticalCatalogueDownloader:
         self.logger.debug(f'Task ID: {task_id}, Task Count: {task_count}')
 
         # Confirm the optical catalogue is downloaded
+        self.logger.info('Ensuring optical catalogue is downloaded...')
         self.download_optical_catalogue()
 
         optical_catalogue = self.load_optical_catalogue()
+        self.logger.info(f'Loaded optical catalogue with {len(optical_catalogue)} resolved items.')
+
+        self.logger.info(f'Extracting optical positions...')
         opt_positions = self.get_optical_positions(optical_catalogue)
 
         # Check if target directory exists, create if not
         target_directory = "optical_catalogue/dr2_cutouts_download"
         if not os.path.exists(target_directory):
+            self.logger.info(f'Creating directory {target_directory}...')
             os.makedirs(target_directory)
 
         # Create a list of image numbers corresponding to the positions
@@ -152,16 +157,19 @@ class OpticalCatalogueDownloader:
         bin_end = du.get_bin_end(n_files)
         image_nums = image_nums[bin_start:bin_end]  # each node only interacts with its own bin
 
+        self.logger.info('Starting download of cutouts for images %i to %i...', bin_start, bin_end)
         for i in tqdm(image_nums):
             # get the RA and DEC for this image number
             ra, dec = opt_positions[i]
 
             # check if file exists and don't download if so
             if os.path.exists(f"optical_catalogue/dr2_cutouts_download/cutout{i}.fits"):
+                self.logger.info(f'Skipping cutout for existing image {i}...')
                 continue
             print(f'Downloading image {i} for RA={ra}, DEC={dec} degrees')
 
             try:
+                self.logger.info(f'Downloading image {i}...')
                 self.get_cutout(f"optical_catalogue/dr2_cutouts_download/cutout{i}.fits", f"{ra} {dec}")
             except Exception as e:
                 self.logger.error(f"Error downloading cutout for image {i} (RA={ra}, DEC={dec}): {e}")

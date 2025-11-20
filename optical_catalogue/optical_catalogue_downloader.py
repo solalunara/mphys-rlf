@@ -157,6 +157,11 @@ class OpticalCatalogueDownloader:
         bin_end = du.get_bin_end(n_files)
         image_nums = image_nums[bin_start:bin_end]  # each node only interacts with its own bin
 
+        # Clear previous log file... yeah, hacky, but anyways
+        if task_id == 0 and os.path.exists("optical_catalogue/download_errors.log"):
+            self.logger.info('Removing previous download errors log file...')
+            os.remove("optical_catalogue/download_errors.log")
+
         self.logger.info('Starting download of cutouts for images %i to %i...', bin_start, bin_end)
         for i in tqdm(image_nums):
             # get the RA and DEC for this image number

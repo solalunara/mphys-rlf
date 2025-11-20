@@ -20,6 +20,9 @@ import h5py;
 import utils.paths as pth;
 import logging;
 from pathlib import PurePath;
+import scipy.stats;
+from sklearn.preprocessing import PowerTransformer;
+from scipy.stats import rv_histogram;
 
 def get_h5_maxvals( outfile, infile ):
     with h5py.File(infile, "r") as f:
@@ -43,6 +46,9 @@ def sample( parameter_args ):
     parser.add_argument( "-n", "--n-samples", help="The number of samples to generate - default 10000", type=int, default=10000 );
     parser.add_argument( "-t", "--timesteps", help="The number of timesteps in sampling - default 25", type=int, default=25 );
     parser.add_argument( "-c", "--use-cpu", help="Whether or not to use CPU and RAM for sampling, as opposed to using avaliable GPUs", action='store_true' );
+    parser.add_argument( "--distribution", help="Distribution type: uniform, loguniform, or dataset. For uniform and loguniform specify upper and lower bounds with --upper and --lower", default='dataset' );
+    parser.add_argument( "--upper", help="Distribution upper bound", type=float, default=0 );
+    parser.add_argument( "--lower", help="Distribution lower bound", type=float, default=0 )
     parser.add_argument( "-p", "--preserve-values", help="Whether or not to preserve unscaled image values. By default images are scaled 0-1", action='store_true' );
     parser.add_argument( "-sz", "--bin-size", help="How large the bins the generated images are sorted into are - default 10000", type=int, default=10000 );
     args = parser.parse_args( parameter_args ); #will automatically read from the command line if passed, else use defaults
@@ -81,7 +87,7 @@ def sample( parameter_args ):
     #   1/ The dataset is downloaded
     #   2/ The max values of the dataset to be saved to a file using only one node while the rest wait,
     #   3/ The max values file to be copied so it can be simultaneously read by multiple nodes
-    #   4/ Those max values to be passed to get_fpeak_model_dist
+    #   4/ Those max values are used to fit a box-cox transform
     logger.debug( 'Making sure we have the dataset...' );
     single_node_download_dataset();
     logger.debug( 'Dataset downloaded. Saving dataset maxvals to %s...', pth.MAXVALS_PARENT/'maxvals.npy' );
@@ -90,8 +96,17 @@ def sample( parameter_args ):
     du.copy_file_for_multiple_nodes( pth.MAXVALS_PARENT / 'maxvals.npy' );
     logger.debug( 'Files copied. Loading file %i', task_id );
     data = np.load( pth.MAXVALS_PARENT / f'maxvals_{task_id}.npy' );
-    fpeak_model_dist = model_sampler.get_fpeak_model_dist( None, max_vals=data );
     logger.debug( 'Done with shared file IO' );
+
+    pt = PowerTransformer( method="box-cox" );
+    pt.fit( data.reshape(-1, 1) );
+
+    if args.distribution == 'dataset':
+        fpeak_model_dist = model_sampler.get_fpeak_model_dist( None, data );
+    elif args.distribution == 'uniform':
+        fpeak_model_dist = lambda n : pt.transform( scipy.stats.uniform.rvs( args.lower, args.upper, size=n ).reshape( -1, 1 ) ).reshape( (n) );
+    elif args.distribution == 'loguniform':
+        fpeak_model_dist = lambda n : pt.transform( scipy.stats.loguniform.rvs( args.lower, args.upper, size=n ).reshape( -1, 1 ) ).reshape( (n) );
 
     sample_generated_count = 0;
     sample_index = bin_start;

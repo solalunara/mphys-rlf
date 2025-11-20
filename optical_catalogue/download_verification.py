@@ -39,6 +39,12 @@ def verify_downloads(downloader, optical_catalogue, download_path="optical_catal
         except Exception as e:
             logger.error(f'Corrupted or empty cutout file: {file_path}.')
             files_to_redownload.append(i)
+            # Delete the corrupted file
+            try:
+                os.remove(file_path)
+                logger.info(f'Deleted corrupted file: {file_path}.')
+            except Exception as del_e:
+                logger.error(f'Error deleting corrupted file {file_path}: {del_e}')
             continue
 
     # Redownload any files if necessary

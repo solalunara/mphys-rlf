@@ -139,7 +139,7 @@ def get_sigma_clipped_mean( path: Path ):
     with open( str( path ) ) as file:
         filedata = file.read();
     #include re.DOTALL to make the .*? able to expand over newlines
-    exp = re.compile( r"sigma clipped mean \(Stokes I\) =  (\d+\.\d+) mJy" );
+    exp = re.compile( r"sigma clipped mean \(Stokes I\) =  -?(\d+\.\d+) mJy" );
     match = exp.search( filedata );
     mean = float( match.group( 1 ) );
     return mean;

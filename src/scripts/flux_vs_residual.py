@@ -27,7 +27,8 @@ def plot_flux_vs_residuals():
         pts = np.array( (delta[ comm1 ], scaled_flux[ comm2 ]) );
 
         plt.scatter( pts[ 1 ], pts[ 0 ], label=subdir, 
-                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b' );
+                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b',
+                     s=0.001 );
 
     plt.xlabel( 'Scaled Flux' );
     plt.ylabel( 'Image Delta' );

@@ -7,6 +7,7 @@ has properly been downloaded.
 import os
 import logging
 import utils.logging
+from tqdm import tqdm
 
 from optical_catalogue_downloader import OpticalCatalogueDownloader
 
@@ -22,7 +23,7 @@ def verify_downloads(downloader, optical_catalogue, download_path="optical_catal
     files_to_redownload = []
 
     # Check for missing images
-    for i in range(total_images):
+    for i in tqdm(range(total_images), desc="Verifying downloaded cutouts"):
         file_path = os.path.join(download_path, f"cutout{i}.fits")
 
         # Check for missing images

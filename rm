@@ -1,0 +1,3 @@
+#!/bin/bash
+COUNT=$(du -a "$@" | wc -l)
+rm -frv "$@" | tqdm --total $COUNT >/dev/null

@@ -15,7 +15,7 @@ BINS_ARRAY = getattr( utils.parameters_local_override, 'BINS_ARRAY', BINS_ARRAY 
 # Default parameters for fits file generation are placed here for ease of maintenance
 FITS_SAMPLING_ARGS = [
     "--batch-size", "100",
-    "--n-samples", "100000",
+    "--n-samples", "50000",
     "--timesteps", "25",
     "--bin-size", "10000",
 #    "--use-cpu"
@@ -28,5 +28,5 @@ LOFAR_FITS_COUNT_CUTOFF = getattr( utils.parameters_local_override, 'LOFAR_FITS_
 
 
 # Whether or not to clean the lofar fits images directory each run
-CLEAN_LOFAR_FITS_IMAGES = True;
+CLEAN_LOFAR_FITS_IMAGES = False;
 CLEAN_LOFAR_FITS_IMAGES = getattr( utils.parameters_local_override, 'CLEAN_LOFAR_FITS_IMAGES', CLEAN_LOFAR_FITS_IMAGES ) if local_overrides else CLEAN_LOFAR_FITS_IMAGES;

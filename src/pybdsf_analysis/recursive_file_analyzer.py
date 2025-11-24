@@ -16,7 +16,7 @@ from astropy.io import fits;
 
 # Utility functions for for_each
 def get_fits_primaryhdu_data( path: Path ):
-    with fits.open( str( path ) ) as hdul:
+    with fits.open( str( path ), memmap=False ) as hdul:
         data = hdul[ 0 ].data;
     # Get rid of leading 1s in shape, e.g. (1,1,n,n) -> (n,n), but preserve 2 dimensions for single pixel images
     while ( len( data.shape ) > 2 ) and ( data.shape[ 0 ] == 1 ):
@@ -24,7 +24,7 @@ def get_fits_primaryhdu_data( path: Path ):
     return data;
 
 def get_fits_primaryhdu_header( path: Path, key: str | None = None ):
-    with fits.open( str( path ) ) as hdul:
+    with fits.open( str( path ), memmap=False ) as hdul:
         if key is not None:
             header = hdul[ 0 ].header[ key ];
         else:

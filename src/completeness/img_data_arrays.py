@@ -11,7 +11,7 @@ from utils.logging import get_logger;
 
 class ImageDataArrays:
     """
-    A class to collect the image data arrays for images in subdir from the original files and from pybdsf analysis,
+    A class to collect unscaled (physical units) image data arrays for images in subdir from the original files and from pybdsf analysis,
     which will be useful for calculating the completeness corrections. All units from the image data arrays are in mJy,
     though the input images are expected to be normalized 0-1 and the scaled peak flux values in Jy. All arrays reference
     the same image at the same index and have the same length in the first dimension, though the order is nonstandard.
@@ -78,20 +78,20 @@ class ImageDataArrays:
     
         # Get the unscaled fluxes and unscale everything accordingly
         pt = PeakFluxPowerTransformer();
-        peak_fluxes = pt.inverse_transform( peak_fluxes_transformed ) * 1000;
-        image_scale_factors = peak_fluxes / np.max( images, axis=(1,2) ); #Scale from current image maxes (~1) to what the values should be as per peak fluxes
+        peak_fluxes_jy = pt.inverse_transform( peak_fluxes_transformed );
+        image_scale_factors = peak_fluxes_jy / np.max( images, axis=(1,2) ); #Scale from current image maxes (~1) to what the values should be as per peak fluxes
         unscaled_sigma_clipped_rmsds = sigma_clipped_rmsds * image_scale_factors;
         unscaled_sigma_clipped_means = sigma_clipped_rmsds * image_scale_factors;
-        model_fluxes = normalized_model_fluxes * image_scale_factors;
-        unscaled_images = images * image_scale_factors[ :, np.newaxis, np.newaxis ];
-        unscaled_residual_images = np.array( residual_images ) * image_scale_factors[ :, np.newaxis, np.newaxis ];
+        model_fluxes = normalized_model_fluxes * image_scale_factors * 1000;
+        unscaled_images = images * image_scale_factors[ :, np.newaxis, np.newaxis ] * 1000;
+        unscaled_residual_images = np.array( residual_images ) * image_scale_factors[ :, np.newaxis, np.newaxis ] * 1000;
         
 
         # Save unscaled variables to class
         self.images = unscaled_images;
         self.residual_images = unscaled_residual_images;
         self.model_fluxes = model_fluxes;
-        self.peak_fluxes = peak_fluxes;
+        self.peak_fluxes = peak_fluxes_jy * 1000;
         self.sigma_clipped_means = unscaled_sigma_clipped_means;
         self.sigma_clipped_rmsds = unscaled_sigma_clipped_rmsds;
 

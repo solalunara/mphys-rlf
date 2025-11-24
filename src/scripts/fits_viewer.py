@@ -139,8 +139,8 @@ class FitsViewer:
         fig = plt.figure( figsize=(aspect*resolution/100, resolution/100) );
 
         if rows == -1:
-            rows = math.ceil( math.sqrt( len( titles ) ) );
-        num_cols = len( titles ) // rows + 1; # +1 for ceiling instead of floor
+            rows = math.ceil( math.sqrt( len( titles ) ) / aspect );
+        num_cols = math.ceil( len( titles ) / rows );
         gs = fig.add_gridspec( rows, num_cols,
                                left=left, right=right, bottom=bottom, top=top,
                                wspace=wspace, hspace=hspace );

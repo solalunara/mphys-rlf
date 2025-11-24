@@ -8,7 +8,7 @@ import pybdsf_analysis.recursive_file_analyzer as rfa;
 import utils.paths;
 import pybdsf_analysis.generate_fits_files as gff;
 import files.dataset as dataset;
-from sklearn.preprocessing import PowerTransformer;
+from pybdsf_analysis.power_transform import PeakFluxPowerTransformer;
 
 class FitsViewer:
     """
@@ -127,13 +127,8 @@ class FitsViewer:
                 files = sorted( self.files, key=lambda file : rfa.get_fits_primaryhdu_header( file, 'FXSCLD' ) );
             elif sorting == FitsViewer.SORT_BY_FLUX:
                 # Sort by (peak) flux by unscaling the flux scaled values from the header with a PowerTransformer fit to the max values in the dataset
-                if not ( utils.paths.MAXVALS_PARENT / 'maxvals.npy' ).exists():
-                    dataset.download_dataset();
-                    gff.get_h5_maxvals( utils.paths.MAXVALS_PARENT / 'maxvals.npy', dataset.LOFAR_DATA_PATH );
-                maxvals = np.load( utils.paths.MAXVALS_PARENT / 'maxvals.npy' );
-                pt = PowerTransformer( method="box-cox" );
-                pt.fit( maxvals.reshape(-1, 1) );
-                files = sorted( self.files, key=lambda file : pt.inverse_transform( np.array( [ rfa.get_fits_primaryhdu_header( file, 'FXSCLD' ) ] ).reshape( -1, 1 ) )[ 0, 0 ] );
+                pt = PeakFluxPowerTransformer();
+                files = sorted( self.files, key=lambda file : pt.inverse_transform( np.array( [ rfa.get_fits_primaryhdu_header( file, 'FXSCLD' ) ] ) ) );
 
             data = [ rfa.get_fits_primaryhdu_data( files[ i ] ) for i in range( len( files ) ) ]; # Order is important here, use index iter just in case
             self.__data_cache = data;

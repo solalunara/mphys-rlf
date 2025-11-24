@@ -11,6 +11,7 @@ import utils.paths as paths
 import model.diffusion as diffusion
 import model.model_utils as model_utils
 import utils.device_utils as device_utils
+from pathlib import Path
 
 
 class Sampler:
@@ -373,8 +374,8 @@ class Sampler:
         train_set_path : Path or str or None
             The path to the training set file. If none, read max values from max_vals
 
-        max_vals : np.ndarray or none
-            The array to read max_vals from if train_set_path is None.
+        max_vals : np.ndarray | Path | None
+            The array or file to read max_vals from if train_set_path is None.
 
         Returns
         -------
@@ -402,6 +403,9 @@ class Sampler:
         if train_set_path is not None:
             with h5py.File(train_set_path, "r") as f:
                 max_vals = np.max(f["images"][:], axis=(1, 2))
+
+        if isinstance( max_vals, Path ):
+            max_vals = np.load( max_vals );
 
         pt = PowerTransformer(method="box-cox")
         pt.fit(max_vals.reshape(-1, 1))

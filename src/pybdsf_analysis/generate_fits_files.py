@@ -21,13 +21,8 @@ import utils.paths as pth;
 import logging;
 from pathlib import PurePath;
 import scipy.stats;
-from sklearn.preprocessing import PowerTransformer;
-from scipy.stats import rv_histogram;
+from pybdsf_analysis.power_transform import PeakFluxPowerTransformer;
 
-def get_h5_maxvals( outfile, infile ):
-    with h5py.File(infile, "r") as f:
-        max_vals = np.max(f["images"][:], axis=(1, 2))
-    np.save( outfile, max_vals );    
 
 def get_path_from_index( index: int, bin_size: int ):
     lower_bound = int( math.floor( ( index ) / bin_size ) * bin_size );
@@ -56,11 +51,8 @@ def sample( parameter_args ):
     #Do a sampling loop of batch_size samples and save them to the disk as they're generated, until we reach n_samples
     model_sampler = model.sampler.Sampler( n_samples=args.batch_size, timesteps=args.timesteps, distribute_model=(not args.use_cpu) );
 
-
     #SLURM distribution w/ batching
     du = DistributedUtils();
-    task_count = du.get_task_count();
-    task_id = du.get_task_id();
     n_samples = args.n_samples;
     bin_start = du.get_bin_start( n_samples );
     bin_end = du.get_bin_end( n_samples );
@@ -81,33 +73,16 @@ def sample( parameter_args ):
         logger.info( 'Skipping bin %i-%i, nothing to do', bin_start, bin_end );
         return;
 
-
-    # Get a distribution of scaled max fluxes from the lofar data
-    # This requires:
-    #   1/ The dataset is downloaded
-    #   2/ The max values of the dataset to be saved to a file using only one node while the rest wait,
-    #   3/ The max values file to be copied so it can be simultaneously read by multiple nodes
-    #   4/ Those max values are used to fit a box-cox transform
-    logger.debug( 'Making sure we have the dataset...' );
-    single_node_download_dataset();
-    logger.debug( 'Dataset downloaded. Saving dataset maxvals to %s...', pth.MAXVALS_PARENT/'maxvals.npy' );
-    du.single_task_only_forcewait( 'get_h5_maxvals', get_h5_maxvals, 0, pth.MAXVALS_PARENT/'maxvals.npy', str( LOFAR_DATA_PATH ) );
-    logger.debug( 'Array saved. Copying array for distributed data processing to %i files...', task_count );
-    du.copy_file_for_multiple_nodes( pth.MAXVALS_PARENT / 'maxvals.npy' );
-    logger.debug( 'Files copied. Loading file %i', task_id );
-    data = np.load( pth.MAXVALS_PARENT / f'maxvals_{task_id}.npy' );
-    logger.debug( 'Done with shared file IO' );
-
-    pt = PowerTransformer( method="box-cox" );
-    pt.fit( data.reshape(-1, 1) );
-
+    # Get the power transformer for the peak fluxes and the appropriate distribution function
+    pt = PeakFluxPowerTransformer();
     if args.distribution == 'dataset':
-        fpeak_model_dist = model_sampler.get_fpeak_model_dist( None, data );
+        fpeak_model_dist = model_sampler.get_fpeak_model_dist( None, pt.maxvals_path );
     elif args.distribution == 'uniform':
-        fpeak_model_dist = lambda n : pt.transform( scipy.stats.uniform.rvs( args.lower, args.upper, size=n ).reshape( -1, 1 ) ).reshape( (n) );
+        fpeak_model_dist = lambda n : pt.transform( scipy.stats.uniform.rvs( args.lower, args.upper, size=n ) );
     elif args.distribution == 'loguniform':
-        fpeak_model_dist = lambda n : pt.transform( scipy.stats.loguniform.rvs( args.lower, args.upper, size=n ).reshape( -1, 1 ) ).reshape( (n) );
+        fpeak_model_dist = lambda n : pt.transform( scipy.stats.loguniform.rvs( args.lower, args.upper, size=n ) );
 
+    # Generate/Sample the samples
     sample_generated_count = 0;
     sample_index = bin_start;
     image_analyzer = ImageAnalyzer( utils.paths.GENERATED_SUBDIR );

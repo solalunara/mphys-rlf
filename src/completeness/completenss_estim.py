@@ -116,7 +116,7 @@ def get_completeness_estim():
         test_mock['detectable'] = detectable;
 
         # Define flux bins
-        flux_bins = np.linspace( 0, 10, num=25 )
+        flux_bins = np.logspace( -2, 2, num=25 )
         bin_centers = 0.5 * (flux_bins[1:] + flux_bins[:-1])
 
         # Bin and count
@@ -136,8 +136,15 @@ def get_completeness_estim():
 
             completeness.append(frac_recovered)
             total_counts.append(np.sum(in_bin))
-        conf_interval = astropy.stats.poisson_conf_interval( np.array( completeness ) * np.array( total_counts ), sigma=1.0, interval='frequentist-confidence' ) / np.array( total_counts );
+
+        # Handle confidence interval with poisson_conf_interval for total_counts = 0
+        total_counts = np.array( total_counts );
+        nonzero_counts = total_counts > 0;
+        total_counts = np.where( nonzero_counts, total_counts, 1e-10 );
+        conf_interval = astropy.stats.poisson_conf_interval( np.array( completeness ) * total_counts, sigma=1.0, interval='frequentist-confidence' ) / total_counts;
+        conf_interval[ :, nonzero_counts ] = 0;
         yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
+
         # Plot completeness curve
 
         plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' );
@@ -152,6 +159,7 @@ def get_completeness_estim():
         plt.grid(True)
         plt.legend()
     plt.show()
+    plt.savefig( 'cplestim.png' );
 
 
 if __name__ == "__main__":

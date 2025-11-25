@@ -22,6 +22,18 @@ def wait_until( somepredicate, timeout: int | None, logger, waiting_on_array: in
         time.sleep(period)
     return False
 
+def distribute(sliceable_array):
+    # Prepare for DDP on slurm on galahad
+    du = DistributedUtils()
+    task_count = du.get_task_count()
+    task_id = du.get_task_id()
+
+    # distribute across multiple tasks by giving each node a slice of a larger array dependent on its array id
+    n_files = len(sliceable_array)
+    bin_start = du.get_bin_start(n_files)
+    bin_end = du.get_bin_end(n_files)
+    return sliceable_array[bin_start:bin_end]  # each node only interacts with its own bin
+
 
 class DistributedUtils:
     """
@@ -167,6 +179,7 @@ class DistributedUtils:
             for i in range( self.get_task_count() ):
                 shutil.copyfile( str(file), f'{str(file.parent)}/{file.stem}_{i}{file.suffix}' )
         self.single_task_only_forcewait( f'copy_file_{str(file)}', __copy_file_lambda, 0 );
+
 
 
 

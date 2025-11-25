@@ -12,7 +12,7 @@ import sys
 from astropy.io import fits
 from tqdm import tqdm
 import asyncio
-from utils.distributed import DistributedUtils
+from utils.distributed import distribute
 
 
 # This is copied from stack overflow, for fast downloads using asyncio
@@ -90,7 +90,7 @@ class OpticalCatalogueDownloader:
         return positions
 
     # NOTE-THIS COMES FROM THE LOFAR API
-    @background
+    # @background
     def get_cutout(self, outfile, pos, size=2, low=False, dr3=False, auth=None):
         '''Get a cutout at position pos with size size arcmin. If low is
         True, get the 20-arcsec cutout, else get the 6-arcsec one. If dr3
@@ -120,12 +120,6 @@ class OpticalCatalogueDownloader:
         """
         Downloads all cutouts from the LOFAR cutout server based on the optical catalogue positions.
         """
-        # Prepare for distributed processing on galahad
-        du = DistributedUtils()
-        task_count = du.get_task_count()
-        task_id = du.get_task_id()
-        self.logger.debug(f'Task ID: {task_id}, Task Count: {task_count}')
-
         # Confirm the optical catalogue is downloaded
         self.logger.info('Ensuring optical catalogue is downloaded...')
         self.download_optical_catalogue()
@@ -145,25 +139,8 @@ class OpticalCatalogueDownloader:
         # Create a list of image numbers corresponding to the positions
         image_nums = list(range(len(opt_positions)))
 
-        # Prepare for simultaneous downloads using multiple CPUs based on binning
-        n_cpus = os.environ.get("N_CPUS", 1)
-        if isinstance(n_cpus, str):
-            n_cpus = int(n_cpus)
-        self.logger.info("Using %i cpu" + ("s" if n_cpus != 1 else ""), n_cpus)
-
-        # distribute across multiple tasks
-        n_files = len(image_nums)
-        bin_start = du.get_bin_start(n_files)
-        bin_end = du.get_bin_end(n_files)
-        image_nums = image_nums[bin_start:bin_end]  # each node only interacts with its own bin
-
-        # Clear previous log file... yeah, hacky, but anyways
-        if task_id == 0 and os.path.exists("optical_catalogue/download_errors.log"):
-            self.logger.info('Removing previous download errors log file...')
-            os.remove("optical_catalogue/download_errors.log")
-
-        self.logger.info('Starting download of cutouts for images %i to %i...', bin_start, bin_end)
-        for i in tqdm(image_nums):
+        # self.logger.info('Starting download of cutouts for images %i to %i...', bin_start, bin_end)
+        for i in tqdm(distribute(image_nums), desc="Downloading cutouts"):
             # get the RA and DEC for this image number
             ra, dec = opt_positions[i]
 

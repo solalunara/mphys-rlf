@@ -10,20 +10,23 @@ import utils.logging
 from tqdm import tqdm
 
 from optical_catalogue_downloader import OpticalCatalogueDownloader
+from utils.distributed import DistributedUtils
+from utils.distributed import distribute
 
-def verify_downloads(downloader, optical_catalogue, download_path="optical_catalogue/dr2_cutouts_download"):
+def verify_downloads(catalogue, download_path="optical_catalogue/dr2_cutouts_download"):
     """
     Verifies that all cutout files have been downloaded.
 
-    :param optical_catalogue: The optical catalogue for the downloaded images.
+    :param catalogue: The optical catalogue for the downloaded images.
     :param download_path: The path where the cutout images are stored.
     """
-    total_images = len(optical_catalogue)
-    opt_positions = downloader.get_optical_positions(optical_catalogue)
+    total_images = len(catalogue)
+    downloader = OpticalCatalogueDownloader()
+    opt_positions = downloader.get_optical_positions(catalogue)
     files_to_redownload = []
 
     # Check for missing images
-    for i in tqdm(range(total_images), desc="Verifying downloaded cutouts"):
+    for i in tqdm(distribute(range(total_images)), desc="Verifying downloaded cutouts"):
         file_path = os.path.join(download_path, f"cutout{i}.fits")
 
         # Check for missing images
@@ -67,9 +70,9 @@ if __name__ == "__main__":
     logger = utils.logging.get_logger("download verifier", logging.INFO)
 
     logger.info('Loading optical catalogue for verification...')
-    downloader = OpticalCatalogueDownloader()
-    optical_catalogue = downloader.load_optical_catalogue()
+    oc_downloader = OpticalCatalogueDownloader()
+    optical_catalogue = oc_downloader.load_optical_catalogue()
     logger.info(f'Loaded optical catalogue with {len(optical_catalogue)} resolved items.')
 
     logger.info('Starting verification of downloaded cutouts...')
-    verify_downloads(downloader, optical_catalogue)
+    verify_downloads(optical_catalogue)

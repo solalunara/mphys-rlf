@@ -23,10 +23,7 @@ def wait_until( somepredicate, timeout: int | None, logger, waiting_on_array: in
     return False
 
 def distribute(sliceable_array):
-    # Prepare for DDP on slurm on galahad
     du = DistributedUtils()
-    task_count = du.get_task_count()
-    task_id = du.get_task_id()
 
     # distribute across multiple tasks by giving each node a slice of a larger array dependent on its array id
     n_files = len(sliceable_array)

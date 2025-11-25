@@ -15,7 +15,7 @@ import asyncio
 from utils.distributed import distribute
 
 # global const
-num_images = 300000
+num_images = 1000
 
 def background(f):
     def wrapped(*args, **kwargs):
@@ -85,26 +85,26 @@ def load_lofar_data(file_path='optical_catalogue/LOFAR_Dataset.h5'):
 # MATCHING ALGORITHMS
 #########
 
-def is_equal_to_matching(opt_cat_items, lofar_item_values):
-    matches = []
-    for i, opt_item in enumerate(tqdm(opt_cat_items)):
-        try:
-            for lofar_item in lofar_item_values:
-                if np.array_equal(opt_item['pixel_values'], lofar_item):
-                    matches.append((opt_item, lofar_item))
-                    break
-        except Exception as e:
-            logger.error(f"Error during matching for optical item {i}: {e}")
-    return matches
+# def is_equal_to_matching(opt_cat_items, lofar_item_values):
+#     matches = []
+#     for i, opt_item in enumerate(tqdm(opt_cat_items)):
+#         try:
+#             for lofar_item in lofar_item_values:
+#                 if np.array_equal(opt_item['pixel_values'], lofar_item):
+#                     matches.append((opt_item, lofar_item))
+#                     break
+#         except Exception as e:
+#             logger.error(f"Error during matching for optical item {i}: {e}")
+#     return matches
 
-@background
 def per_pixel_matching(opt_cat_items, lofar_item_values):
     matches = []
-    for i, opt_item in distribute(enumerate(tqdm(opt_cat_items))):
+    for i, opt_item in enumerate(tqdm(distribute(opt_cat_items))):
+        pixel_values = opt_item['pixel_values']
         try:
             for lofar_item in lofar_item_values:
-                for j in range(len(opt_item['pixel_values'])):
-                    if opt_item['pixel_values'][j] != lofar_item[j]:
+                for j in range(len(pixel_values)):
+                    if pixel_values[j] != lofar_item[j]:
                         break
                 else:
                     matches.append((opt_item, lofar_item))

@@ -24,8 +24,6 @@ import utils.logging
 import logging
 
 
-num_iter = 1000  # For testing purposes, limit to first 1000 items
-
 class OpticalCatalogueCreator:
     """
     A class to create the optical catalogue by combining header information with pixel values from cutout files.
@@ -46,9 +44,6 @@ class OpticalCatalogueCreator:
         with fits.open(file_path) as hdul:
             catalogue_data = hdul[1].data  # Assuming the data is in the first extension
             resolved_items = catalogue_data[catalogue_data['Resolved'] == True]
-
-            #TODO: REMOVE
-            resolved_items = resolved_items[:num_iter]
 
         # Turn resolved_items into a dictionary list for easier handling
         resolved_list = [{'header': item} for item in resolved_items]
@@ -83,11 +78,12 @@ class OpticalCatalogueCreator:
 
         return list_of_dicts
 
-    def save_to_fits(self, optical_catalogue, save_path='optical_catalogue/optical_catalogue_with_images.fits'):
+    def save_to_fits(self, optical_catalogue, file_path="optical_catalogue/combined-release-v1.2-LM_opt_mass.fits", save_path='optical_catalogue/optical_catalogue_with_images.fits'):
         """
         Saves the optical catalogue with pixel values to a FITS file.
 
         :param optical_catalogue: The optical catalogue with pixel values.
+        :param file_path: The path to the input FITS file.
         :param save_path: The path to save the FITS file.
         """
         # This is a little confusing, so let me explain; I have two sources of information, the hardcastle catalogue
@@ -103,7 +99,7 @@ class OpticalCatalogueCreator:
 
         # Create BinTableHDU with the header information from the optical catalogue
         self.logger.info("Creating BinTableHDU from Hardcastle catalogue...")
-        with fits.open("optical_catalogue/combined-release-v1.2-LM_opt_mass.fits") as hdul:
+        with fits.open(file_path) as hdul:
             resol_data = hdul[1].data[hdul[1].data['Resolved'] == True]
             hdu_list.append(fits.BinTableHDU(data=resol_data, header=hdul[1].header, name="OPTICAL_CATALOGUE"))
 
@@ -130,16 +126,16 @@ class OpticalCatalogueCreator:
         hdul.writeto(save_path, overwrite=True)
         self.logger.info(f'Optical catalogue with images saved to {save_path}.')
 
-    def create_optical_catalogue(self):
+    def create_optical_catalogue(self, file_path="optical_catalogue/combined-release-v1.2-LM_opt_mass.fits", folder_path='optical_catalogue/dr2_cutouts_download/', save_path='optical_catalogue/optical_catalogue_with_images.fits'):
         """
         Creates the optical catalogue by loading headers and images, then combining them.
         """
         # Load the optical catalogue headers
-        optical_catalogue = self.load_optical_header()
-        optical_catalogue = self.load_optical_images(optical_catalogue)
+        optical_catalogue = self.load_optical_header(file_path)
+        optical_catalogue = self.load_optical_images(optical_catalogue, folder_path)
 
         # Save the combined optical catalogue to a FITS file
-        self.save_to_fits(optical_catalogue)
+        self.save_to_fits(optical_catalogue, file_path, save_path)
 
 if __name__ == "__main__":
     occ = OpticalCatalogueCreator()

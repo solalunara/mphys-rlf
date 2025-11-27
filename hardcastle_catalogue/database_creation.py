@@ -58,7 +58,7 @@ class DatabaseCreator:
                     catalogue_data.append({'index': idx, 'pixel_values': hdu.data})
                 except Exception as e:
                     self.logger.error(f"Error loading Hardcastle catalogue item {idx}: {e}")
-                    catalogue_data.append({'index':idx, 'pixel_values': np.nan})
+                    catalogue_data.append({'index': idx, 'pixel_values': np.nan})
 
                 # TODO: For testing purposes, limit to first num_items items
                 if idx >= num_items - 1:
@@ -104,7 +104,7 @@ class DatabaseCreator:
 
     def find_dataset_matches(self, hdc_cat_items, lofar_images, lofar_sums, sorted_indices):
         self.logger.info("Finding dataset matches...")
-
+        matches = []
         for idx, hdc_item in tqdm(enumerate(hdc_cat_items), desc="Finding matches"):
             hdc_sum = np.nansum(hdc_item['clipped_values'])
 
@@ -145,9 +145,9 @@ class DatabaseCreator:
 
             # Now check these candidate indices for actual pixel equality
             matched = False
-            hdc_pixels = hdc_item['clipped_values']
+            hdc_pixels = hdc_item['clipped_values'].flatten()
             for candidate_idx in candidate_indices:
-                lofar_pixels = lofar_images[candidate_idx]
+                lofar_pixels = lofar_images[candidate_idx].flatten()
                 try:
                     for j in range(len(lofar_pixels)):
                         if hdc_pixels[j] != lofar_pixels[j]:
@@ -162,12 +162,50 @@ class DatabaseCreator:
             # Exact per-pixel match found - all proof i need!
             if matched:
                 self.logger.info(f'Match found for Hardcastle catalogue item index {idx} with LOFAR item index {matching_idx}.')
-                return # TODO: Store the match somewhere
+                matches.append({'hardcastle_index': idx, 'lofar_index': matching_idx, 'per_pixel_match': True})
 
-            # If not, we always have the closest match found via binary search
-            self.logger.info(f'No exact match found for Hardcastle catalogue item index {idx} Found closest match.')
-            return # TODO: Store the closest match somewhere
+            else:
+                self.logger.info(f'No exact match found for Hardcastle catalogue item index {idx}. Found closest match.')
+                matches.append({'hardcastle_index': idx, 'lofar_index': sorted_indices[closest_match_idx], 'per_pixel_match': False})
 
+        return matches
+
+    def save_matches_and_info(self, matches, folder_name='hardcastle_catalogue/final_database/'):
+        """
+        Saves the matched items to a directory. Rather than compile into one file, these will be individual fits files
+        with an accompanying CSV file for the match information. This is because pyBDSF analysis requires individual
+        FITS files anyway, so this saves us from having to split them later.
+
+        :param matches: The list of matched items.
+        :param folder_name: The folder to save the matched items to.
+        """
+        self.logger.info(f"Saving matches to {folder_name}...")
+
+        if not os.path.exists(folder_name):
+            os.makedirs(folder_name)
+
+        match_info_path = os.path.join(folder_name, 'match_info.csv')
+        with open(match_info_path, 'w') as info_file:
+            info_file.write("hardcastle_index,lofar_index,per_pixel_match\n")
+            for match in tqdm(matches, desc="Saving matched items"):
+                hardcastle_idx = match['hardcastle_index']
+                lofar_idx = match['lofar_index']
+                per_pixel = match['per_pixel_match']
+
+                # The individual FITS file is a cutout from dr2_cutouts_download
+                cutout_file = f"hardcastle_catalogue/dr2_cutouts_download/cutout{hardcastle_idx}.fits"
+                save_path = os.path.join(folder_name, f"matched_cutout{hardcastle_idx}_lofar{lofar_idx}.fits")
+                try:
+                    with fits.open(cutout_file) as hdul:
+                        hdul.writeto(save_path, overwrite=True)
+                except Exception as e:
+                    self.logger.error(f"Error saving matched FITS file for Hardcastle index {hardcastle_idx}: {e}")
+                    continue
+
+                # Write match info to CSV
+                info_file.write(f"{hardcastle_idx},{lofar_idx},{per_pixel}\n")
+
+        self.logger.info("Matches saved successfully.")
 
     def create_matching_dataset(self):
         """
@@ -176,16 +214,17 @@ class DatabaseCreator:
         self.logger.info("Starting database creation process...")
 
         # Load the two datasets
-        hdc_catalogue = self.load_hardcastle_catalogue()
+        header_info, hdc_catalogue = self.load_hardcastle_catalogue()
         lofar_values = self.load_given_LOFAR_data()
 
         # Sort the LOFAR data for faster matching
         lofar_sums, sorted_indices = self.sort_LOFAR_data(lofar_values)
 
         # Find matches
-        self.find_dataset_matches(hdc_catalogue, lofar_values, lofar_sums, sorted_indices)
+        matched_items = self.find_dataset_matches(hdc_catalogue, lofar_values, lofar_sums, sorted_indices)
 
-        return
+        # Save the matches to a file
+        self.save_matches_and_info(matched_items)
 
 if __name__ == "__main__":
     # NOTE - PLEASE RUN hardcastle_catalogue/hardcastle_catalogue_downloader.py FIRST TO DOWNLOAD THE Hardcastle CATALOGUE FITS FILE

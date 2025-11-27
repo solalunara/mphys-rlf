@@ -41,7 +41,7 @@ class OpticalCatalogueCreator:
         """
         # Get the header information for the resolved items from the optical catalogue
         self.logger.info(f"Loading optical catalogue from {file_path}")
-        with fits.open(file_path) as hdul:
+        with fits.open(file_path, memmap=False) as hdul:
             catalogue_data = hdul[1].data  # Assuming the data is in the first extension
             resolved_items = catalogue_data[catalogue_data['Resolved'] == True]
 
@@ -71,7 +71,7 @@ class OpticalCatalogueCreator:
                 continue
 
             try:
-                with fits.open(cutout_file) as cutout_hdul:
+                with fits.open(cutout_file, memmap=False) as cutout_hdul:
                     list_of_dicts[i]['pixel_values'] = cutout_hdul[0].data
             except Exception as e:
                 self.logger.error(f"Error loading cutout file {cutout_file}: {e}")
@@ -99,7 +99,7 @@ class OpticalCatalogueCreator:
 
         # Create BinTableHDU with the header information from the optical catalogue
         self.logger.info("Creating BinTableHDU from Hardcastle catalogue...")
-        with fits.open(file_path) as hdul:
+        with fits.open(file_path, memmap=False) as hdul:
             resol_data = hdul[1].data[hdul[1].data['Resolved'] == True]
             hdu_list.append(fits.BinTableHDU(data=resol_data, header=hdul[1].header, name="OPTICAL_CATALOGUE"))
 
@@ -141,8 +141,8 @@ if __name__ == "__main__":
     occ = OpticalCatalogueCreator()
     occ.create_optical_catalogue()
 
-    # Test loading the created catalogue
-    with fits.open('optical_catalogue/optical_catalogue_with_images.fits') as hdul:
-        print(hdul.info())
-        print(hdul[1].data[:5])  # Print first 5 entries of the catalogue
-        print(hdul[2].data)      # Print pixel values of the first image
+    # # Test loading the created catalogue
+    # with fits.open('optical_catalogue/optical_catalogue_with_images.fits') as hdul:
+    #     print(hdul.info())
+    #     print(hdul[1].data[:5])  # Print first 5 entries of the catalogue
+    #     print(hdul[2].data)      # Print pixel values of the first image

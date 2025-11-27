@@ -1,6 +1,6 @@
 
 
-# Write code that will import the "combined-release-v1.2-LM_opt_mass.fits" file from the optical_catalogue directory
+# Write code that will import the "combined-release-v1.2-LM_opt_mass.fits" file from the hardcastle_catalogue directory
 # and print out the number of items with the Resolved flag equal to True
 
 from astropy.io import fits
@@ -8,10 +8,10 @@ import numpy as np
 import h5py
 from tqdm import tqdm
 
-def load_optical_catalogue(file_path="combined-release-v1.2-LM_opt_mass.fits"):
+def load_hardcastle_catalogue(file_path="combined-release-v1.2-LM_opt_mass.fits"):
     # Load the FITS file
     with fits.open(file_path) as hdul:
-        catalogue_data = hdul[1].data  # Assuming the data is in the first extensio
+        catalogue_data = hdul[1].data  # Assuming the data is in the first extension
 
     # We have verified below that the number of resolved flags is about expected; 27 more images than the paper uses, but
     # this is how they went from LOFAR's >4.3 million images to 314k
@@ -52,8 +52,8 @@ def load_given_LOFAR_data(file_path='LOFAR_Dataset.h5'):
         return lofar_block1_labels, lofar_block1_values
 
 
-def count_matches(opt_cat_items, lofar_item_values):
-    # Iterate through the optical catalogue items and count matches in the LOFAR dataset for the following fields
+def count_matches(hdc_cat_items, lofar_item_values):
+    # Iterate through the Hardcastle catalogue items and count matches in the LOFAR dataset for the following fields
     specific_fields = ['E_RA', 'E_DEC', 'Total_flux', 'E_Total_flux', 'Peak_flux', 'E_Peak_flux']
     match_count = 0
 
@@ -61,16 +61,16 @@ def count_matches(opt_cat_items, lofar_item_values):
     lofar_ra_values = lofar_item_values[:, 0]  # RA values
     lofar_dec_values = lofar_item_values[:, 1]  # DEC values
 
-    # For every item in the optical catalogue, we're going to try and find an exact match for all specific fields
+    # For every item in the Hardcastle catalogue, we're going to try and find an exact match for all specific fields
     y=0
-    for idx, opt_item in tqdm(enumerate(opt_cat_items)):
+    for idx, hdc_item in tqdm(enumerate(hdc_cat_items)):
         y+=1
 
         passed_checks = [] # this is a list of fields which are the same between the image
 
         # We're going to use RA and DEC kinda like a primary key to find matches
-        opt_ra = opt_item['RA']
-        opt_dec = opt_item['DEC']
+        opt_ra = hdc_item['RA']
+        opt_dec = hdc_item['DEC']
 
         # Going to use the fact we know the index for 'RA' is 0 and 'DEC' is 1 in the LOFAR dataset to speed things up
         # First find wherever the RA matches, and then see if any of those also have matching DEC
@@ -78,26 +78,26 @@ def count_matches(opt_cat_items, lofar_item_values):
         dec_match_indices = np.where(np.isclose(lofar_dec_values, opt_dec, atol=1e-10))[0]
         common_indices = np.intersect1d(ra_match_indices, dec_match_indices)
         if len(common_indices) == 0:
-            continue  # No match found for RA and DEC, skip to the next optical catalogue item
+            continue  # No match found for RA and DEC, skip to the next Hardcastle catalogue item
         if len(common_indices) > 1:
-            print(f'Warning: Multiple matches found for optical catalogue item index {idx} with RA={opt_ra} and DEC={opt_dec}')
+            print(f'Warning: Multiple matches found for Hardcastle catalogue item index {idx} with RA={opt_ra} and DEC={opt_dec}')
             break
         common_index = common_indices[0] # this should just be a single number
 
         # Now check the other specific fields for these common indices
         for field_idx, field in enumerate(specific_fields):
-            opt_value = opt_item[field]  # gets the value of the field for this item
+            hdc_value = hdc_item[field]  # gets the value of the field for this item
 
             lofar_item = lofar_item_values[common_index]
             lofar_value = lofar_item[field_idx+2]  # +2 because RA and DEC are the first two fields
-            if np.isclose(lofar_value, opt_value, atol=1e-10):
+            if np.isclose(lofar_value, hdc_value, atol=1e-10):
                 passed_checks.append(field)
             else:
-                print(f'Field {field} does not match: optical={opt_value}, LOFAR={lofar_value}')
+                print(f'Field {field} does not match: Hardcastle={hdc_value}, LOFAR={lofar_value}')
 
         if len(passed_checks) == len(specific_fields):
             match_count += 1
-            print(f'Match found for optical catalogue item index {idx}: {opt_item}')
+            print(f'Match found for Hardcastle catalogue item index {idx}: {hdc_item}')
 
         # if y > 1000:
         #     break  # Limit to first 1000 items for performance during testing
@@ -107,10 +107,10 @@ def count_matches(opt_cat_items, lofar_item_values):
 
 
 if __name__ == "__main__":
-    # The FITS file for the optical catalogue comes from the LoTSS-DR2 and is described by Hardcastle et al. 2023
+    # The FITS file for the Hardcastle catalogue comes from the LoTSS-DR2 and is described by Hardcastle et al. 2023
     # It has the data with nice headers, and although it's 4.1 mil items we can narrow it done to approximately the
     # same dataset used in the paper.
-    resolved_items = load_optical_catalogue()
+    resolved_items = load_hardcastle_catalogue()
 
     # Unfortunately, the same is not true for the h5 file provided by the paper we're using. It's messy, with a lot of
     # headers filled with NaN values. I am doing my best to try and handle all of that but YEESH.

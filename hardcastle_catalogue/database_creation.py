@@ -1,7 +1,7 @@
 """
 So -- it is very unclear the relationship between the LOFAR data given (LOFAR_Dataset.h5) and the actual LOFAR data
-releases. From information in the paper, they refer to Hardcastle et al. 2023, which contains an opticl catalogue (i.e.,
-a catalogue of radio sources that are "good" in the optical from LOFAR). The paper also mentions that they use only
+releases. From information in the paper, they refer to Hardcastle et al. 2023, which contains a catalogue of radio
+sources that are "good" in the optical from LOFAR). The paper also mentions that they use only
 resolved sources.
 
 We have established from testing that the header information provided in the h5 file seems to be inaccurate - the RA
@@ -25,20 +25,20 @@ import os
 
 class DatabaseCreator:
     """
-    A class to create a full LOFAR database using the optical catalogue as the source, rather than the given LOFAR data.
+    A class to create a full LOFAR database using the Hardcastle catalogue as the source, rather than the given LOFAR data.
     """
 
     def __init__(self):
         self.logger = utils.logging.get_logger("database creator", logging.DEBUG)
 
-    def load_optical_catalogue(self, file_path="combined-release-v1.2-LM_opt_mass.fits"):
+    def load_hardcastle_catalogue(self, file_path="combined-release-v1.2-LM_opt_mass.fits"):
         """
-        Loads the optical catalogue from a FITS file and filters for resolved items.
+        Loads the Hardcastle catalogue from a FITS file and filters for resolved items.
 
-        :param file_path: The path to the optical catalogue FITS file.
+        :param file_path: The path to the Hardcastle catalogue FITS file.
         :return: A list of resolved items from the catalogue.
         """
-        # Get the header information for the resolved items from the optical catalogue
+        # Get the header information for the resolved items from the Hardcastle catalogue
         with fits.open(file_path) as hdul:
             catalogue_data = hdul[1].data  # Assuming the data is in the first extension
             resolved_items = catalogue_data[catalogue_data['Resolved'] == True]
@@ -47,15 +47,15 @@ class DatabaseCreator:
         resolved_list = [{'header': item} for item in resolved_items]
         #
         # # 0-clip to match the LOFAR dataset's preprocessing
-        # self.logger.info("0-clipping the optical pixel values...")
-        # for i in range(len(optical_catalogue)):
+        # self.logger.info("0-clipping the Hardcastle pixel values...")
+        # for i in range(len(hardcastle_catalogue)):
         #     try:
-        #         if isinstance(optical_catalogue[i]['pixel_values'], np.ndarray):
-        #             optical_catalogue[i]['clipped_values'] = np.clip(optical_catalogue[i]['pixel_values'], 0, None)
+        #         if isinstance(hardcastle_catalogue[i]['pixel_values'], np.ndarray):
+        #             hardcastle_catalogue[i]['clipped_values'] = np.clip(hardcastle_catalogue[i]['pixel_values'], 0, None)
         #         else:
-        #             optical_catalogue[i]['clipped_values'] = np.nan
+        #             hardcastle_catalogue[i]['clipped_values'] = np.nan
         #     except Exception as e:
-        #         self.logger.error(f"Error during 0-clipping for optical item {i}: {e}")
+        #         self.logger.error(f"Error during 0-clipping for Hardcastle item {i}: {e}")
 
 
         return resolved_list
@@ -67,13 +67,13 @@ class DatabaseCreator:
 
         return lofar_images
 
-    def create_matching_dataset(self, opt_cat_items, lofar_item_values):
+    def create_matching_dataset(self, hdc_cat_items, lofar_item_values):
         """
-        This finds matching items between the optical catalogue and the LOFAR dataset based on the pixel values of the items,
+        This finds matching items between the Hardcastle catalogue and the LOFAR dataset based on the pixel values of the items,
         because the header information in the LOFAR dataset is unreliable. The output is therefore every LOFAR image in the
-        same order but with header information supplied from the optical catalogue.
+        same order but with header information supplied from the Hardcastle catalogue.
 
-        :param opt_cat_items: The optical catalogue items.
+        :param hdc_cat_items: The Hardcastle catalogue items.
         :param lofar_item_values: The LOFAR item values given by the paper.
         :return: The created dataset
         """
@@ -86,21 +86,21 @@ class DatabaseCreator:
             # As we know the headers in the LOFAR data aren't relevant, the only way to match is by pixel values. The LOFAR
             # item is a 80x80 grid of pixel values; we will unravel them into a 1D array
 
-            # Grab an optical item
-            opt_item = opt_cat_items[idx]
-            print(opt_item)
+            # Grab an Hardcastle item
+            hdc_item = hdc_cat_items[idx]
+            print(hdc_item)
 
 
             # Going to use the fact we know the index for 'RA' is 0 and 'DEC' is 1 in the LOFAR dataset to speed things up
             # First find wherever the RA matches, and then see if any of those also have matching DEC
-            ra_match_indices = np.where(np.isclose(opt_ra_values, lofar_ra, atol=1e-10))[0]
-            dec_match_indices = np.where(np.isclose(opt_dec_values, lofar_dec, atol=1e-10))[0]
+            ra_match_indices = np.where(np.isclose(hdc_ra_values, lofar_ra, atol=1e-10))[0]
+            dec_match_indices = np.where(np.isclose(hdc_dec_values, lofar_dec, atol=1e-10))[0]
             common_indices = np.intersect1d(ra_match_indices, dec_match_indices)
             if len(common_indices) == 0:
-                continue  # No match found for RA and DEC, skip to the next optical catalogue item
+                continue  # No match found for RA and DEC, skip to the next Hardcastle catalogue item
             if len(common_indices) > 1:
                 print(
-                    f'Warning: Multiple matches found for optical catalogue item index {idx} with RA={lofar_ra} and DEC={lofar_dec}')
+                    f'Warning: Multiple matches found for Hardcastle catalogue item index {idx} with RA={lofar_ra} and DEC={lofar_dec}')
                 break
             common_index = common_indices[0]  # this should just be a single number
 
@@ -112,7 +112,7 @@ class DatabaseCreator:
 
 
 if __name__ == "__main__":
-    # NOTE - PLEASE RUN optical_catalogue/optical_catalogue_downloader.py FIRST TO DOWNLOAD THE OPTICAL CATALOGUE FITS FILE
+    # NOTE - PLEASE RUN hardcastle_catalogue/hardcastle_catalogue_downloader.py FIRST TO DOWNLOAD THE Hardcastle CATALOGUE FITS FILE
     # IT'S A LITTLE ANNOYING TO IMPLEMENT IN HERE BECAUSE IT USES GALAHAD DDP
 
     # The FITS file for the optical catalogue comes from the LoTSS-DR2 and is described by Hardcastle et al. 2023
@@ -122,8 +122,8 @@ if __name__ == "__main__":
 
     db_creator.logger.info("Starting database creation process...")
 
-    print("Loading optical catalogue from FITS file...")
-    opt = db_creator.load_optical_catalogue()
+    print("Loading Hardcastle catalogue from FITS file...")
+    hdc = db_creator.load_optical_catalogue()
 
     # Unfortunately, the same is not true for the h5 file provided by the paper we're using. It's messy, with a lot of
     # headers filled with NaN values. I am doing my best to try and handle all of that but YEESH.
@@ -131,5 +131,5 @@ if __name__ == "__main__":
     lofar_values = db_creator.load_given_LOFAR_data()
 
     print("Creating matching dataset...")
-    db_creator.create_matching_dataset(opt, lofar_values)
+    db_creator.create_matching_dataset(hdc, lofar_values)
     print()

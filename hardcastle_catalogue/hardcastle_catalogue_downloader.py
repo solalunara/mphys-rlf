@@ -1,6 +1,7 @@
 """
 This script downloads 314,769 files from the LOFAR cut-out server if they do not already exist. These files are needed
-in the construction of a catalogue that matches the pre-processed LOFAR data given with their actual headers.
+in the construction of a catalogue that matches the pre-processed LOFAR data given with their actual headers provided
+by the Hardcastle et al 2023 paper.
 """
 
 import os
@@ -21,46 +22,46 @@ def background(f):
         return asyncio.get_event_loop().run_in_executor(None, f, *args, **kwargs)
     return wrapped
 
-class OpticalCatalogueDownloader:
+class HardcastleCatalogueDownloader:
     """
-    This is a class to handle downloading cutouts from the LOFAR cutout server based on the optical catalogue. This is
+    This is a class to handle downloading cutouts from the LOFAR cutout server based on the Hardcastle catalogue. This is
     not a standalone step; the ~300k output files have not undergone pre-processing and further work is needed (see
     database_creation.py) to match them to the pre-processed LOFAR dataset.
     """
 
     def __init__(self):
         # Set up logging
-        self.logger = utils.logging.get_logger("optical catalogue downloader", logging.DEBUG)
+        self.logger = utils.logging.get_logger("hardcastle catalogue downloader", logging.DEBUG)
 
-    def download_optical_catalogue(self, save_path="optical_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
+    def download_hardcastle_catalogue(self, save_path="hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
         """
-        Downloads the optical catalogue FITS file from the LOFAR website if it does not already exist.
+        Downloads the Hardcastle catalogue FITS file from the LOFAR website if it does not already exist.
 
         :param save_path: The path to save the downloaded FITS file.
         """
         if os.path.exists(save_path):
-            self.logger.info(f'Optical catalogue already exists at {save_path}. Skipping download.')
+            self.logger.info(f'Hardcastle catalogue already exists at {save_path}. Skipping download.')
             return
 
         url = "https://lofar-surveys.org/public/DR2/catalogues/combined-release-v1.2-LM_opt_mass.fits"
-        self.logger.info(f'Downloading optical catalogue from {url}...')
+        self.logger.info(f'Downloading Hardcastle catalogue from {url}...')
         response = requests.get(url, stream=True)
 
         if response.status_code == 200:
             with open(save_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            self.logger.info(f'Optical catalogue downloaded and saved to {save_path}.')
+            self.logger.info(f'Hardcastle catalogue downloaded and saved to {save_path}.')
         else:
-            self.logger.error(f'Failed to download optical catalogue. Status code: {response.status_code}')
+            self.logger.error(f'Failed to download Hardcastle catalogue. Status code: {response.status_code}')
 
-    def load_optical_catalogue(self, file_path="optical_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
+    def load_hardcastle_catalogue(self, file_path="hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
         """
-        Loads the optical catalogue from a FITS file and filters for resolved items. This turns the ~4.1mil items from the
+        Loads the Hardcastle catalogue from a FITS file and filters for resolved items. This turns the ~4.1mil items from the
         LoTSS-DR2 release w/ optical sources to 314,769 values. Note that this does not get pixel values; that is what this
         whole script is for.
 
-        :param file_path: The path to the optical catalogue FITS file.
+        :param file_path: The path to the Hardcastle catalogue FITS file.
         :return: A list of resolved items from the catalogue.
         """
         try:
@@ -75,15 +76,15 @@ class OpticalCatalogueDownloader:
 
         return resolved_items
 
-    def get_optical_positions(self, optical_catalogue):
+    def get_positions_from_hardcastle(self, hardcastle_catalogue):
         """
-        Extracts the optical positions (RA, DEC) from the resolved items in the optical catalogue.
+        Extracts the positions (RA, DEC) from the resolved items in the Hardcastle catalogue.
 
-        :param optical_catalogue: The list of resolved items from the optical catalogue.
+        :param hardcastle_catalogue: The list of resolved items from the Hardcastle catalogue.
         :return: A list of tuples containing (RA, DEC) for each resolved item.
         """
         positions = []
-        for item in optical_catalogue:
+        for item in hardcastle_catalogue:
             ra = item['RA']
             dec = item['DEC']
             positions.append((ra, dec))
@@ -118,56 +119,56 @@ class OpticalCatalogueDownloader:
 
     def download_all_cutouts(self):
         """
-        Downloads all cutouts from the LOFAR cutout server based on the optical catalogue positions.
+        Downloads all cutouts from the LOFAR cutout server based on the Hardcastle catalogue positions.
         """
-        # Confirm the optical catalogue is downloaded
-        self.logger.info('Ensuring optical catalogue is downloaded...')
-        self.download_optical_catalogue()
+        # Confirm the Hardcastle catalogue is downloaded
+        self.logger.info('Ensuring Hardcastle catalogue is downloaded...')
+        self.download_hardcastle_catalogue()
 
-        optical_catalogue = self.load_optical_catalogue()
-        self.logger.info(f'Loaded optical catalogue with {len(optical_catalogue)} resolved items.')
+        hardcastle_catalogue = self.load_hardcastle_catalogue()
+        self.logger.info(f'Loaded Hardcastle catalogue with {len(hardcastle_catalogue)} resolved items.')
 
-        self.logger.info(f'Extracting optical positions...')
-        opt_positions = self.get_optical_positions(optical_catalogue)
+        self.logger.info(f'Extracting positions...')
+        hdc_positions = self.get_positions_from_hardcastle(hardcastle_catalogue)
 
         # Check if target directory exists, create if not
-        target_directory = "optical_catalogue/dr2_cutouts_download"
+        target_directory = "hardcastle_catalogue/dr2_cutouts_download"
         if not os.path.exists(target_directory):
             self.logger.info(f'Creating directory {target_directory}...')
             os.makedirs(target_directory)
 
         # Create a list of image numbers corresponding to the positions
-        image_nums = list(range(len(opt_positions)))
+        image_nums = list(range(len(hdc_positions)))
 
         # self.logger.info('Starting download of cutouts for images %i to %i...', bin_start, bin_end)
         for i in tqdm(distribute(image_nums), desc="Downloading cutouts"):
             # get the RA and DEC for this image number
-            ra, dec = opt_positions[i]
+            ra, dec = hdc_positions[i]
 
             # check if file exists and don't download if so
-            if os.path.exists(f"optical_catalogue/dr2_cutouts_download/cutout{i}.fits"):
+            if os.path.exists(f"hardcastle_catalogue/dr2_cutouts_download/cutout{i}.fits"):
                 self.logger.info(f'Skipping cutout for existing image {i}...')
                 continue
             print(f'Downloading image {i} for RA={ra}, DEC={dec} degrees')
 
             try:
                 self.logger.info(f'Downloading image {i}...')
-                self.get_cutout(f"optical_catalogue/dr2_cutouts_download/cutout{i}.fits", f"{ra} {dec}")
+                self.get_cutout(f"hardcastle_catalogue/dr2_cutouts_download/cutout{i}.fits", f"{ra} {dec}")
             except Exception as e:
                 self.logger.error(f"Error downloading cutout for image {i} (RA={ra}, DEC={dec}): {e}")
-                with open("optical_catalogue/download_errors.log", "a") as log_file:
+                with open("hardcastle_catalogue/download_errors.log", "a") as log_file:
                     log_file.write(f"Image {i}: RA={ra}, DEC={dec}, Error: {e}\n")
 
 
 if __name__ == "__main__":
     # Prepare for distributed processing on galahad
-    # Get a list of positions from the optical catalogue
+    # Get a list of positions from the Hardcastle catalogue
     # Running into a possible problem where galahad nodes don't want to read the same file; will force a single node
     # to perform this, and then copy the results to all nodes.
 
-    # file_path = Path("optical_catalogue/combined-release-v1.2-LM_opt_mass.fits")
+    # file_path = Path("hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits")
     # du.copy_file_for_multiple_nodes(file_path)
     # du.single_task_only_forcewait('load_optical_catalogue', load_optical_catalogue, 0)
-    downloader = OpticalCatalogueDownloader()
+    downloader = HardcastleCatalogueDownloader()
     downloader.download_all_cutouts()
 

@@ -9,20 +9,20 @@ import logging
 import utils.logging
 from tqdm import tqdm
 
-from optical_catalogue_downloader import OpticalCatalogueDownloader
+from hardcastle_catalogue_downloader import HardcastleCatalogueDownloader
 from utils.distributed import DistributedUtils
 from utils.distributed import distribute
 
-def verify_downloads(catalogue, download_path="optical_catalogue/dr2_cutouts_download"):
+def verify_downloads(catalogue, download_path="hardcastle_catalogue/dr2_cutouts_download"):
     """
     Verifies that all cutout files have been downloaded.
 
-    :param catalogue: The optical catalogue for the downloaded images.
+    :param catalogue: The Hardcastle catalogue for the downloaded images.
     :param download_path: The path where the cutout images are stored.
     """
     total_images = len(catalogue)
-    downloader = OpticalCatalogueDownloader()
-    opt_positions = downloader.get_optical_positions(catalogue)
+    downloader = HardcastleCatalogueDownloader()
+    hdc_positions = downloader.get_positions_from_hardcastle(catalogue)
     files_to_redownload = []
 
     # Check for missing images
@@ -55,7 +55,7 @@ def verify_downloads(catalogue, download_path="optical_catalogue/dr2_cutouts_dow
     if files_to_redownload:
         logger.info(f'Total missing cutout files: {len(files_to_redownload)}. Redownloading...')
         for i in files_to_redownload:
-            ra, dec = opt_positions[i]
+            ra, dec = hdc_positions[i]
             try:
                 logger.info(f'Redownloading cutout for image {i} (RA={ra}, DEC={dec})...')
                 downloader.get_cutout(os.path.join(download_path, f"cutout{i}.fits"), f"{ra} {dec}")
@@ -69,10 +69,10 @@ if __name__ == "__main__":
     # Prepare logger
     logger = utils.logging.get_logger("download verifier", logging.INFO)
 
-    logger.info('Loading optical catalogue for verification...')
-    oc_downloader = OpticalCatalogueDownloader()
-    optical_catalogue = oc_downloader.load_optical_catalogue()
-    logger.info(f'Loaded optical catalogue with {len(optical_catalogue)} resolved items.')
+    logger.info('Loading Hardcastle catalogue for verification...')
+    oc_downloader = HardcastleCatalogueDownloader()
+    hdc_catalogue = oc_downloader.load_hardcastle_catalogue()
+    logger.info(f'Loaded Hardcastle catalogue with {len(hdc_catalogue)} resolved items.')
 
     logger.info('Starting verification of downloaded cutouts...')
-    verify_downloads(optical_catalogue)
+    verify_downloads(hdc_catalogue)

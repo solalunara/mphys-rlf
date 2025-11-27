@@ -80,47 +80,45 @@ class DatabaseCreator:
 
         return lofar_images
 
-    def sort_LOFAR_data(self, lofar_images):
+    def sort_hardcastle_data(self, hdc_images):
         """
         """
-        # Had this idea -- you can sort the LOFAR pixel values array by total pixel value sum, which then, by computing
-        # the same for the Hardcastle catalogue, would allow the usage of e.g., a binary search to find matches faster.
-        db_creator.logger.info("Sorting LOFAR data for faster matching...")
-        lofar_sums = np.array([np.nansum(image) for image in lofar_images])
-        sorted_indices = np.argsort(lofar_sums)
-        self.logger.info(f'Lowest LOFAR pixel sum: {lofar_sums[sorted_indices[0]]}')
-        self.logger.info(f'Highest LOFAR pixel sum: {lofar_sums[sorted_indices[-1]]}')
-        self.logger.info(f'Median LOFAR pixel sum: {lofar_sums[sorted_indices[len(sorted_indices)//2]]}')
+        # Had this idea -- you can sort the Hardcastle pixel values array by total pixel value sum, which then, by computing
+        # the same for the LOFAR catalogue, would allow the usage of e.g., a binary search to find matches faster.
+        db_creator.logger.info("Sorting Hardcastle data for faster matching...")
+        hdc_sums = np.array([np.nansum(image) for image in hdc_images])
+        sorted_indices = np.argsort(hdc_sums)
+        self.logger.info(f'Lowest Hardcastle pixel sum: {hdc_sums[sorted_indices[0]]}')
+        self.logger.info(f'Highest Hardcastle pixel sum: {hdc_sums[sorted_indices[-1]]}')
+        self.logger.info(f'Median Hardcastle pixel sum: {hdc_sums[sorted_indices[len(sorted_indices)//2]]}')
 
-        # sorted_lofar_images = lofar_images[sorted_indices]
+        return hdc_sums[sorted_indices], sorted_indices
 
-        return lofar_sums[sorted_indices], sorted_indices
-
-    def find_dataset_matches(self, hdc_cat_items, lofar_images, lofar_sums, sorted_indices):
+    def find_dataset_matches(self, lofar_images, hdc_images, hdc_sums, sorted_indices):
         self.logger.info("Finding dataset matches...")
         matches = []
-        for idx, hdc_item in tqdm(enumerate(hdc_cat_items), desc="Finding matches"):
-            hdc_sum = np.nansum(hdc_item['clipped_values'])
+        for idx, lof_item in tqdm(enumerate(lofar_images), desc="Finding matches"):
+            lof_sum = np.nansum(lof_item)
 
             # Keep track of the closest match found so far
             closest_match_idx = -1
             closest_match_diff = float('inf')
 
-            # Use binary search to find potential matches in the sorted LOFAR sums
-            left, right = 0, len(lofar_sums) - 1 # establish search bounds
+            # Use binary search to find potential matches in the sorted Hardcastle sums
+            left, right = 0, len(hdc_sums) - 1 # establish search bounds
             while left <= right:  # exit condition i.e., if we ever get left > right, no match has been found
                 mid = (left + right) // 2  # get the middle position in the current search range
-                mid_value = lofar_sums[mid] # get the LOFAR sum at that position
+                mid_value = hdc_sums[mid] # get the Hardcastle sum at that position
 
                 # Update the closest match; this is here in case no match is found, we still have the closest one
-                if abs(mid_value - hdc_sum) < closest_match_diff:
-                    closest_match_diff = abs(mid_value - hdc_sum)
-                    closest_match_idx = mid # note this is the sorted index and does not correspond to the original LOFAR index
+                if abs(mid_value - lof_sum) < closest_match_diff:
+                    closest_match_diff = abs(mid_value - lof_sum)
+                    closest_match_idx = mid # note this is the sorted index and does not correspond to the original Hardcastle index
 
                 # Check for next steps
-                if np.isclose(mid_value, hdc_sum, atol=1e-10): # found a match!!
+                if np.isclose(mid_value, lof_sum, atol=1e-10): # found a match!!
                     break
-                elif mid_value < hdc_sum:  # otherwise, mid value is less than target, search right half (asc so larger values are right)
+                elif mid_value < lof_sum:  # otherwise, mid value is less than target, search right half (asc so larger values are right)
                     left = mid + 1
                 else: # mid value is greater than target, search left half (asc so smaller values are left)
                     right = mid - 1
@@ -131,7 +129,7 @@ class DatabaseCreator:
             candidate_indices = []
             for offset in range(-5, 6):
                 candidate_idx = closest_match_idx + offset # generate new index
-                if 0 <= candidate_idx < len(lofar_sums): # ensure it's within bounds
+                if 0 <= candidate_idx < len(hdc_sums): # ensure it's within bounds
                     candidate_indices.append(candidate_idx)
 
             # Convert sorted indices back to original LOFAR indices so we can access the corresponding images
@@ -139,28 +137,28 @@ class DatabaseCreator:
 
             # Now check these candidate indices for actual pixel equality
             matched = False
-            hdc_pixels = hdc_item['clipped_values'].flatten()
+            lof_pixels = lof_item.flatten()
             for candidate_idx in candidate_indices:
-                lofar_pixels = lofar_images[candidate_idx].flatten()
+                hdc_pixels = hdc_images[candidate_idx].flatten()
                 try:
-                    for j in range(len(lofar_pixels)):
-                        if hdc_pixels[j] != lofar_pixels[j]:
+                    for j in range(len(lof_pixels)):
+                        if hdc_pixels[j] != lof_pixels[j]:
                             break
                     else:
                         matched = True
                         matching_idx = candidate_idx
                         break
                 except Exception as e:
-                    self.logger.error(f"Error during matching for LOFAR item {candidate_idx}: {e}")
+                    self.logger.error(f"Error during matching for Hardcastle item {candidate_idx}: {e}")
 
             # Exact per-pixel match found - all proof i need!
             if matched:
-                self.logger.info(f'Match found for Hardcastle catalogue item index {idx} with LOFAR item index {matching_idx}.')
-                matches.append({'hardcastle_index': idx, 'lofar_index': matching_idx, 'per_pixel_match': True})
+                self.logger.info(f'Match found for LOFAR item index {idx} with Hardcastle catalogue index {matching_idx}.')
+                matches.append({'lofar_index': idx, 'hardcastle_index': matching_idx, 'per_pixel_match': True})
 
             else:
-                self.logger.info(f'No exact match found for Hardcastle catalogue item index {idx}. Found closest match.')
-                matches.append({'hardcastle_index': idx, 'lofar_index': sorted_indices[closest_match_idx], 'per_pixel_match': False})
+                self.logger.info(f'No exact match found for LOFAR item index {idx}. Found closest match...')
+                matches.append({'lofar_index': idx, 'hardcastle_index': sorted_indices[closest_match_idx], 'per_pixel_match': False})
 
         return matches
 
@@ -180,15 +178,15 @@ class DatabaseCreator:
 
         match_info_path = os.path.join(folder_name, 'match_info.csv')
         with open(match_info_path, 'w') as info_file:
-            info_file.write("hardcastle_index,lofar_index,per_pixel_match\n")
+            info_file.write("lofar_index,hardcastle_index,per_pixel_match\n")
             for match in tqdm(matches, desc="Saving matched items"):
-                hardcastle_idx = match['hardcastle_index']
                 lofar_idx = match['lofar_index']
+                hardcastle_idx = match['hardcastle_index']
                 per_pixel = match['per_pixel_match']
 
                 # The individual FITS file is a cutout from dr2_cutouts_download
                 cutout_file = f"hardcastle_catalogue/dr2_cutouts_download/cutout{hardcastle_idx}.fits"
-                save_path = os.path.join(folder_name, f"matched_cutout{hardcastle_idx}_lofar{lofar_idx}.fits")
+                save_path = os.path.join(folder_name, f"matched_lofar{lofar_idx}_cutout{hardcastle_idx}.fits")
                 try:
                     with fits.open(cutout_file) as hdul:
                         hdul.writeto(save_path, overwrite=True)
@@ -197,7 +195,7 @@ class DatabaseCreator:
                     continue
 
                 # Write match info to CSV
-                info_file.write(f"{hardcastle_idx},{lofar_idx},{per_pixel}\n")
+                info_file.write(f"{lofar_idx},{hardcastle_idx},{per_pixel}\n")
 
         self.logger.info("Matches saved successfully.")
 
@@ -212,10 +210,10 @@ class DatabaseCreator:
         lofar_values = self.load_given_LOFAR_data()
 
         # Sort the LOFAR data for faster matching
-        lofar_sums, sorted_indices = self.sort_LOFAR_data(lofar_values)
+        hdc_sums, sorted_indices = self.sort_hardcastle_data(hdc_catalogue)
 
         # Find matches
-        matched_items = self.find_dataset_matches(hdc_catalogue, lofar_values, lofar_sums, sorted_indices)
+        matched_items = self.find_dataset_matches(lofar_values, hdc_catalogue, hdc_sums, sorted_indices)
 
         # Save the matches to a file
         self.save_matches_and_info(matched_items)
@@ -229,3 +227,5 @@ if __name__ == "__main__":
     # same dataset used in the paper.
     db_creator = DatabaseCreator()
     db_creator.create_matching_dataset()
+
+    # TODO: HDC pixel values seem not to be used. Unless I want to save custom FITS files, they can be removed

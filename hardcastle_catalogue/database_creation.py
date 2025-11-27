@@ -98,12 +98,76 @@ class DatabaseCreator:
         self.logger.info(f'Highest LOFAR pixel sum: {lofar_sums[sorted_indices[-1]]}')
         self.logger.info(f'Median LOFAR pixel sum: {lofar_sums[sorted_indices[len(sorted_indices)//2]]}')
 
-        sorted_lofar_images = lofar_images[sorted_indices]
+        # sorted_lofar_images = lofar_images[sorted_indices]
 
-        return sorted_lofar_images, sorted_indices
+        return lofar_sums[sorted_indices], sorted_indices
 
-    def find_dataset_matches(self, hdc_cat_items, lofar_item_values):
-        pass
+    def find_dataset_matches(self, hdc_cat_items, lofar_images, lofar_sums, sorted_indices):
+        self.logger.info("Finding dataset matches...")
+
+        for idx, hdc_item in tqdm(enumerate(hdc_cat_items), desc="Finding matches"):
+            hdc_sum = np.nansum(hdc_item['clipped_values'])
+
+            # Keep track of the closest match found so far
+            closest_match_idx = -1
+            closest_match_diff = float('inf')
+
+            # Use binary search to find potential matches in the sorted LOFAR sums
+            left, right = 0, len(lofar_sums) - 1 # establish search bounds
+            while left <= right:  # exit condition i.e., if we ever get left > right, no match has been found
+                mid = (left + right) // 2  # get the middle position in the current search range
+                mid_value = lofar_sums[mid] # get the LOFAR sum at that position
+
+                # Update the closest match; this is here in case no match is found, we still have the closest one
+                if abs(mid_value - hdc_sum) < closest_match_diff:
+                    closest_match_diff = abs(mid_value - hdc_sum)
+                    closest_match_idx = mid # note this is the sorted index and does not correspond to the original LOFAR index
+
+                # Check for next steps
+                if np.isclose(mid_value, hdc_sum, atol=1e-10): # found a match!!
+                    break
+                elif mid_value < hdc_sum:  # otherwise, mid value is less than target, search right half (asc so larger values are right)
+                    left = mid + 1
+                else: # mid value is greater than target, search left half (asc so smaller values are left)
+                    right = mid - 1
+
+            # After the binary search, we know the closest match index. Note that we are ignoring extra logic for exact
+            # matches because there's no guarantee that an exact match in pixel sum means every pixel is identical.
+            # Get a list of 10 indices around the closest match to check for actual pixel equality
+            candidate_indices = []
+            for offset in range(-5, 6):
+                candidate_idx = closest_match_idx + offset # generate new index
+                if 0 <= candidate_idx < len(lofar_sums): # ensure it's within bounds
+                    candidate_indices.append(candidate_idx)
+
+            # Convert sorted indices back to original LOFAR indices so we can access the corresponding images
+            candidate_indices = [sorted_indices[i] for i in candidate_indices]
+
+            # Now check these candidate indices for actual pixel equality
+            matched = False
+            hdc_pixels = hdc_item['clipped_values']
+            for candidate_idx in candidate_indices:
+                lofar_pixels = lofar_images[candidate_idx]
+                try:
+                    for j in range(len(lofar_pixels)):
+                        if hdc_pixels[j] != lofar_pixels[j]:
+                            break
+                    else:
+                        matched = True
+                        matching_idx = candidate_idx
+                        break
+                except Exception as e:
+                    self.logger.error(f"Error during matching for LOFAR item {candidate_idx}: {e}")
+
+            # Exact per-pixel match found - all proof i need!
+            if matched:
+                self.logger.info(f'Match found for Hardcastle catalogue item index {idx} with LOFAR item index {matching_idx}.')
+                return # TODO: Store the match somewhere
+
+            # If not, we always have the closest match found via binary search
+            self.logger.info(f'No exact match found for Hardcastle catalogue item index {idx} Found closest match.')
+            return # TODO: Store the closest match somewhere
+
 
     def create_matching_dataset(self):
         """
@@ -112,14 +176,14 @@ class DatabaseCreator:
         self.logger.info("Starting database creation process...")
 
         # Load the two datasets
-        # hdc = self.load_hardcastle_catalogue()
+        hdc_catalogue = self.load_hardcastle_catalogue()
         lofar_values = self.load_given_LOFAR_data()
 
         # Sort the LOFAR data for faster matching
-        lofar_values, sorted_indices = self.sort_LOFAR_data(lofar_values)
+        lofar_sums, sorted_indices = self.sort_LOFAR_data(lofar_values)
 
-        # db_creator.logger.info("Creating matching dataset...")
-        # db_creator.create_matching_dataset(hdc, lofar_values)
+        # Find matches
+        self.find_dataset_matches(hdc_catalogue, lofar_values, lofar_sums, sorted_indices)
 
         return
 

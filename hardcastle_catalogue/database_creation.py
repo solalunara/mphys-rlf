@@ -60,7 +60,7 @@ class DatabaseCreator:
 
         # 0-clip to match the LOFAR dataset's preprocessing
         self.logger.info("0-clipping the Hardcastle pixel values...")
-        for i in range(len(catalogue_data)):
+        for i in tqdm(range(len(catalogue_data)), desc="0-clipping Hardcastle values"):
             try:
                 if isinstance(catalogue_data[i]['pixel_values'], np.ndarray):
                     catalogue_data[i]['clipped_values'] = np.clip(catalogue_data[i]['pixel_values'], 0, None)
@@ -85,8 +85,8 @@ class DatabaseCreator:
         """
         # Had this idea -- you can sort the Hardcastle pixel values array by total pixel value sum, which then, by computing
         # the same for the LOFAR catalogue, would allow the usage of e.g., a binary search to find matches faster.
-        db_creator.logger.info("Sorting Hardcastle data for faster matching...")
-        hdc_sums = np.array([np.nansum(image) for image in hdc_images])
+        self.logger.info("Sorting Hardcastle data for faster matching...")
+        hdc_sums = np.array([np.nansum(image['clipped_values']) for image in hdc_images])
         sorted_indices = np.argsort(hdc_sums)
         self.logger.info(f'Lowest Hardcastle pixel sum: {hdc_sums[sorted_indices[0]]}')
         self.logger.info(f'Highest Hardcastle pixel sum: {hdc_sums[sorted_indices[-1]]}')
@@ -139,7 +139,7 @@ class DatabaseCreator:
             matched = False
             lof_pixels = lof_item.flatten()
             for candidate_idx in candidate_indices:
-                hdc_pixels = hdc_images[candidate_idx].flatten()
+                hdc_pixels = hdc_images[candidate_idx]['clipped_values'].flatten()
                 try:
                     for j in range(len(lof_pixels)):
                         if hdc_pixels[j] != lof_pixels[j]:

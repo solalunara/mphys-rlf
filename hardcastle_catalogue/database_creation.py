@@ -23,8 +23,6 @@ import logging
 from utils.distributed import distribute
 import os
 
-num_items = 1000 # for testing purposes, limit to first 1000 items
-
 class DatabaseCreator:
     """
     A class to create a full LOFAR database using the Hardcastle catalogue as the source, rather than the given LOFAR data.
@@ -59,10 +57,6 @@ class DatabaseCreator:
                 except Exception as e:
                     self.logger.error(f"Error loading Hardcastle catalogue item {idx}: {e}")
                     catalogue_data.append({'index': idx, 'pixel_values': np.nan})
-
-                # TODO: For testing purposes, limit to first num_items items
-                if idx >= num_items - 1:
-                    break
 
         # 0-clip to match the LOFAR dataset's preprocessing
         self.logger.info("0-clipping the Hardcastle pixel values...")

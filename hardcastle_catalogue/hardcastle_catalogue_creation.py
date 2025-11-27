@@ -126,7 +126,7 @@ class HardcastleCatalogueCreator:
         hdul.writeto(save_path, overwrite=True)
         self.logger.info(f'Hardcastle catalogue with images saved to {save_path}.')
 
-    def create_hardcastle_catalogue(self, file_path="hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits", folder_path='hardcastle_catalogue/dr2_cutouts_download/', save_path='hardcastle_catalogue/optical_catalogue_with_images.fits'):
+    def create_hardcastle_catalogue(self, file_path="hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits", folder_path='hardcastle_catalogue/dr2_cutouts_download/', save_path='hardcastle_catalogue/hardcastle_catalogue_with_images.fits'):
         """
         Creates the Hardcastle catalogue by loading headers and images, then combining them.
         """
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     occ.create_hardcastle_catalogue()
 
     # # Test loading the created catalogue
-    # with fits.open('hardcastle_catalogue/optical_catalogue_with_images.fits') as hdul:
+    # with fits.open('hardcastle_catalogue/hardcastle_catalogue_with_images.fits') as hdul:
     #     print(hdul.info())
     #     print(hdul[1].data[:5])  # Print first 5 entries of the catalogue
     #     print(hdul[2].data)      # Print pixel values of the first image

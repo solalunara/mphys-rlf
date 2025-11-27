@@ -9,8 +9,8 @@ and DEC values give a galaxy with completely different pixel values from the LOF
 goal was to verify that we can reach the same dataset as the paper, from official resources, but we have now adapted it
 to generate a new dataset with completely correct header information.
 
-Have just now discovered that the optical catalogue does not contain pixel values. I am adding code to download the cutouts
-from the LOFAR cutout server for each resolved item in the optical catalogue. Note that this is not the full catalogue.
+Have just now discovered that the Hardcastle catalogue does not contain pixel values. I am adding code to download the cutouts
+from the LOFAR cutout server for each resolved item in the Hardcastle catalogue. Note that this is not the full catalogue.
 """
 
 from astropy.io import fits
@@ -23,6 +23,8 @@ import logging
 from utils.distributed import distribute
 import os
 
+num_items = 1000 # for testing purposes, limit to first 1000 items
+
 class DatabaseCreator:
     """
     A class to create a full LOFAR database using the Hardcastle catalogue as the source, rather than the given LOFAR data.
@@ -31,36 +33,49 @@ class DatabaseCreator:
     def __init__(self):
         self.logger = utils.logging.get_logger("database creator", logging.DEBUG)
 
-    def load_hardcastle_catalogue(self, file_path="combined-release-v1.2-LM_opt_mass.fits"):
+    def load_hardcastle_catalogue(self, file_path="hardcastle_catalogue/hardcastle_catalogue_with_images.fits"):
         """
-        Loads the Hardcastle catalogue from a FITS file and filters for resolved items.
+        Loads the Hardcastle catalogue from a FITS file 0-clips it for matching with the present LOFAR data.
 
         :param file_path: The path to the Hardcastle catalogue FITS file.
-        :return: A list of resolved items from the catalogue.
+        :return: A list of 0-clipped items from the catalogue.
         """
-        # Get the header information for the resolved items from the Hardcastle catalogue
+        # Get the information from the Hardcastle catalogue
+        catalogue_data = []
         with fits.open(file_path) as hdul:
-            catalogue_data = hdul[1].data  # Assuming the data is in the first extension
-            resolved_items = catalogue_data[catalogue_data['Resolved'] == True]
+            # The first non-Primary table has all the header information. This'll be stored in a separate file with
+            # the final matching dataset. No usage for now
+            header_information = hdul[1].data
 
-        # Turn resolved_items into a dictionary list for easier handling
-        resolved_list = [{'header': item} for item in resolved_items]
-        #
-        # # 0-clip to match the LOFAR dataset's preprocessing
-        # self.logger.info("0-clipping the Hardcastle pixel values...")
-        # for i in range(len(hardcastle_catalogue)):
-        #     try:
-        #         if isinstance(hardcastle_catalogue[i]['pixel_values'], np.ndarray):
-        #             hardcastle_catalogue[i]['clipped_values'] = np.clip(hardcastle_catalogue[i]['pixel_values'], 0, None)
-        #         else:
-        #             hardcastle_catalogue[i]['clipped_values'] = np.nan
-        #     except Exception as e:
-        #         self.logger.error(f"Error during 0-clipping for Hardcastle item {i}: {e}")
+            # Remove the first two HDUs which are just Primary and the header table
+            hdul = hdul[2:]
 
+            # Extract the pixel values from each imageHDU
+            for idx, hdu in enumerate(tqdm(hdul, desc="Loading Hardcastle Catalogue")):
+                try:
+                    catalogue_data.append({'index': idx, 'pixel_values': hdu.data})
+                except Exception as e:
+                    self.logger.error(f"Error loading Hardcastle catalogue item {idx}: {e}")
+                    catalogue_data.append({'index':idx, 'pixel_values': np.nan})
 
-        return resolved_list
+                # TODO: For testing purposes, limit to first num_items items
+                if idx >= num_items - 1:
+                    break
 
-    def load_given_LOFAR_data(self, file_path='LOFAR_Dataset.h5'):
+        # 0-clip to match the LOFAR dataset's preprocessing
+        self.logger.info("0-clipping the Hardcastle pixel values...")
+        for i in range(len(catalogue_data)):
+            try:
+                if isinstance(catalogue_data[i]['pixel_values'], np.ndarray):
+                    catalogue_data[i]['clipped_values'] = np.clip(catalogue_data[i]['pixel_values'], 0, None)
+                else:
+                    catalogue_data[i]['clipped_values'] = np.nan
+            except Exception as e:
+                self.logger.error(f"Error during 0-clipping for Hardcastle item {i}: {e}")
+
+        return header_information, catalogue_data
+
+    def load_given_LOFAR_data(self, file_path='hardcastle_catalogue/LOFAR_Dataset.h5'):
         # Extract the data from the h5 file
         with h5py.File(file_path, 'r') as h5file:
             lofar_images = h5file['images'][:]
@@ -115,21 +130,21 @@ if __name__ == "__main__":
     # NOTE - PLEASE RUN hardcastle_catalogue/hardcastle_catalogue_downloader.py FIRST TO DOWNLOAD THE Hardcastle CATALOGUE FITS FILE
     # IT'S A LITTLE ANNOYING TO IMPLEMENT IN HERE BECAUSE IT USES GALAHAD DDP
 
-    # The FITS file for the optical catalogue comes from the LoTSS-DR2 and is described by Hardcastle et al. 2023
+    # The FITS file for the Hardcastle catalogue comes from the LoTSS-DR2 and is described by Hardcastle et al. 2023
     # It has the data with nice headers, and although it's 4.1 mil items we can narrow it done to approximately the
     # same dataset used in the paper.
     db_creator = DatabaseCreator()
 
     db_creator.logger.info("Starting database creation process...")
 
-    print("Loading Hardcastle catalogue from FITS file...")
-    hdc = db_creator.load_optical_catalogue()
+    db_creator.logger.info("Loading Hardcastle catalogue from FITS file...")
+    hdc = db_creator.load_hardcastle_catalogue()
 
     # Unfortunately, the same is not true for the h5 file provided by the paper we're using. It's messy, with a lot of
     # headers filled with NaN values. I am doing my best to try and handle all of that but YEESH.
-    print("Loading LOFAR data from H5 file...")
+    db_creator.logger.info("Loading LOFAR data from H5 file...")
     lofar_values = db_creator.load_given_LOFAR_data()
 
-    print("Creating matching dataset...")
-    db_creator.create_matching_dataset(hdc, lofar_values)
+    db_creator.logger.info("Creating matching dataset...")
+    # db_creator.create_matching_dataset(hdc, lofar_values)
     print()

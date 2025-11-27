@@ -20,10 +20,12 @@ from tqdm import tqdm
 
 import utils.logging
 import logging
+from utils.distributed import distribute
+import os
 
 class DatabaseCreator:
     """
-    A class to create a full
+    A class to create a full LOFAR database using the optical catalogue as the source, rather than the given LOFAR data.
     """
 
     def __init__(self):
@@ -36,35 +38,34 @@ class DatabaseCreator:
         :param file_path: The path to the optical catalogue FITS file.
         :return: A list of resolved items from the catalogue.
         """
-        try:
-            with fits.open(file_path) as hdul:
-                # catalogue_images = hdul[2].data
-                catalogue_data = hdul[1].data
-                print(hdul.info())
-        except Exception as e:
-            print(f"Error loading FITS file: {e}")
-            return []
+        # Get the header information for the resolved items from the optical catalogue
+        with fits.open(file_path) as hdul:
+            catalogue_data = hdul[1].data  # Assuming the data is in the first extension
+            resolved_items = catalogue_data[catalogue_data['Resolved'] == True]
 
-        # Extract the Resolved flag
-        resolved_flags = catalogue_data['Resolved']
+        # Turn resolved_items into a dictionary list for easier handling
+        resolved_list = [{'header': item} for item in resolved_items]
+        #
+        # # 0-clip to match the LOFAR dataset's preprocessing
+        # self.logger.info("0-clipping the optical pixel values...")
+        # for i in range(len(optical_catalogue)):
+        #     try:
+        #         if isinstance(optical_catalogue[i]['pixel_values'], np.ndarray):
+        #             optical_catalogue[i]['clipped_values'] = np.clip(optical_catalogue[i]['pixel_values'], 0, None)
+        #         else:
+        #             optical_catalogue[i]['clipped_values'] = np.nan
+        #     except Exception as e:
+        #         self.logger.error(f"Error during 0-clipping for optical item {i}: {e}")
 
-        # Get the indices of resolved items
-        resolved_indices = np.where(resolved_flags == True)[0]
 
-        # Get the resolved images using these indices
-        print(catalogue_data)
-        # resolved_images = catalogue_images[resolved_indices]
-
-        return resolved_images
-
+        return resolved_list
 
     def load_given_LOFAR_data(self, file_path='LOFAR_Dataset.h5'):
         # Extract the data from the h5 file
         with h5py.File(file_path, 'r') as h5file:
             lofar_images = h5file['images'][:]
-            print(len(lofar_images))
 
-            return lofar_images
+        return lofar_images
 
     def create_matching_dataset(self, opt_cat_items, lofar_item_values):
         """
@@ -119,8 +120,10 @@ if __name__ == "__main__":
     # same dataset used in the paper.
     db_creator = DatabaseCreator()
 
+    db_creator.logger.info("Starting database creation process...")
+
     print("Loading optical catalogue from FITS file...")
-    resolved_items = db_creator.load_optical_catalogue()
+    opt = db_creator.load_optical_catalogue()
 
     # Unfortunately, the same is not true for the h5 file provided by the paper we're using. It's messy, with a lot of
     # headers filled with NaN values. I am doing my best to try and handle all of that but YEESH.
@@ -128,5 +131,5 @@ if __name__ == "__main__":
     lofar_values = db_creator.load_given_LOFAR_data()
 
     print("Creating matching dataset...")
-    db_creator.create_matching_dataset(resolved_items, lofar_values)
+    db_creator.create_matching_dataset(opt, lofar_values)
     print()

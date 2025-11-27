@@ -40,6 +40,8 @@ class DatabaseCreator:
         :param file_path: The path to the Hardcastle catalogue FITS file.
         :return: A list of 0-clipped items from the catalogue.
         """
+        self.logger.info("Loading Hardcastle catalogue from FITS file...")
+
         # Get the information from the Hardcastle catalogue
         catalogue_data = []
         with fits.open(file_path) as hdul:
@@ -76,55 +78,50 @@ class DatabaseCreator:
         return header_information, catalogue_data
 
     def load_given_LOFAR_data(self, file_path='hardcastle_catalogue/LOFAR_Dataset.h5'):
+        self.logger.info("Loading LOFAR data from H5 file...")
+
         # Extract the data from the h5 file
         with h5py.File(file_path, 'r') as h5file:
             lofar_images = h5file['images'][:]
 
         return lofar_images
 
-    def create_matching_dataset(self, hdc_cat_items, lofar_item_values):
+    def sort_LOFAR_data(self, lofar_images):
         """
-        This finds matching items between the Hardcastle catalogue and the LOFAR dataset based on the pixel values of the items,
-        because the header information in the LOFAR dataset is unreliable. The output is therefore every LOFAR image in the
-        same order but with header information supplied from the Hardcastle catalogue.
-
-        :param hdc_cat_items: The Hardcastle catalogue items.
-        :param lofar_item_values: The LOFAR item values given by the paper.
-        :return: The created dataset
         """
-        num_iter = 0
-        new_dataset = np.array([])
+        # Had this idea -- you can sort the LOFAR pixel values array by total pixel value sum, which then, by computing
+        # the same for the Hardcastle catalogue, would allow the usage of e.g., a binary search to find matches faster.
+        db_creator.logger.info("Sorting LOFAR data for faster matching...")
+        lofar_sums = np.array([np.nansum(image) for image in lofar_images])
+        sorted_indices = np.argsort(lofar_sums)
+        self.logger.info(f'Lowest LOFAR pixel sum: {lofar_sums[sorted_indices[0]]}')
+        self.logger.info(f'Highest LOFAR pixel sum: {lofar_sums[sorted_indices[-1]]}')
+        self.logger.info(f'Median LOFAR pixel sum: {lofar_sums[sorted_indices[len(sorted_indices)//2]]}')
 
-        for idx, lofar_item in tqdm(enumerate(lofar_item_values)):
-            num_iter += 1
+        sorted_lofar_images = lofar_images[sorted_indices]
 
-            # As we know the headers in the LOFAR data aren't relevant, the only way to match is by pixel values. The LOFAR
-            # item is a 80x80 grid of pixel values; we will unravel them into a 1D array
+        return sorted_lofar_images, sorted_indices
 
-            # Grab an Hardcastle item
-            hdc_item = hdc_cat_items[idx]
-            print(hdc_item)
+    def find_dataset_matches(self, hdc_cat_items, lofar_item_values):
+        pass
 
+    def create_matching_dataset(self):
+        """
+        Creates a matching dataset between the Hardcastle catalogue and the given LOFAR data.
+        """
+        self.logger.info("Starting database creation process...")
 
-            # Going to use the fact we know the index for 'RA' is 0 and 'DEC' is 1 in the LOFAR dataset to speed things up
-            # First find wherever the RA matches, and then see if any of those also have matching DEC
-            ra_match_indices = np.where(np.isclose(hdc_ra_values, lofar_ra, atol=1e-10))[0]
-            dec_match_indices = np.where(np.isclose(hdc_dec_values, lofar_dec, atol=1e-10))[0]
-            common_indices = np.intersect1d(ra_match_indices, dec_match_indices)
-            if len(common_indices) == 0:
-                continue  # No match found for RA and DEC, skip to the next Hardcastle catalogue item
-            if len(common_indices) > 1:
-                print(
-                    f'Warning: Multiple matches found for Hardcastle catalogue item index {idx} with RA={lofar_ra} and DEC={lofar_dec}')
-                break
-            common_index = common_indices[0]  # this should just be a single number
+        # Load the two datasets
+        # hdc = self.load_hardcastle_catalogue()
+        lofar_values = self.load_given_LOFAR_data()
 
+        # Sort the LOFAR data for faster matching
+        lofar_values, sorted_indices = self.sort_LOFAR_data(lofar_values)
 
+        # db_creator.logger.info("Creating matching dataset...")
+        # db_creator.create_matching_dataset(hdc, lofar_values)
 
-            if num_iter > 1000:
-                break  # Limit to first 1000 items for performance during testing
-
-
+        return
 
 if __name__ == "__main__":
     # NOTE - PLEASE RUN hardcastle_catalogue/hardcastle_catalogue_downloader.py FIRST TO DOWNLOAD THE Hardcastle CATALOGUE FITS FILE
@@ -134,17 +131,4 @@ if __name__ == "__main__":
     # It has the data with nice headers, and although it's 4.1 mil items we can narrow it done to approximately the
     # same dataset used in the paper.
     db_creator = DatabaseCreator()
-
-    db_creator.logger.info("Starting database creation process...")
-
-    db_creator.logger.info("Loading Hardcastle catalogue from FITS file...")
-    hdc = db_creator.load_hardcastle_catalogue()
-
-    # Unfortunately, the same is not true for the h5 file provided by the paper we're using. It's messy, with a lot of
-    # headers filled with NaN values. I am doing my best to try and handle all of that but YEESH.
-    db_creator.logger.info("Loading LOFAR data from H5 file...")
-    lofar_values = db_creator.load_given_LOFAR_data()
-
-    db_creator.logger.info("Creating matching dataset...")
-    # db_creator.create_matching_dataset(hdc, lofar_values)
-    print()
+    db_creator.create_matching_dataset()

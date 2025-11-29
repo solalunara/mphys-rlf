@@ -27,7 +27,7 @@ def background(f):
 # DATABASE LOADING FUNCTIONS
 ########
 
-def load_optical_catalogue(file_path='optical_catalogue/combined-release-v1.2-LM_opt_mass.fits', folder_path='optical_catalogue/dr2_cutouts_download/'):
+def load_optical_catalogue(file_path='hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits', folder_path='hardcastle_catalogue/dr2_cutouts_download/'):
     # Get the header information for the resolved items from the optical catalogue
     with fits.open(file_path) as hdul:
         catalogue_data = hdul[1].data  # Assuming the data is in the first extension
@@ -70,7 +70,7 @@ def load_optical_catalogue(file_path='optical_catalogue/combined-release-v1.2-LM
 
     return resolved_list
 
-def load_lofar_data(file_path='optical_catalogue/LOFAR_Dataset.h5'):
+def load_lofar_data(file_path='hardcastle_catalogue/LOFAR_Dataset.h5'):
     with h5py.File(file_path, 'r') as h5file:
         lofar_item_values = h5file['images'][:]
 

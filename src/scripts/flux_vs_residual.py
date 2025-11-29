@@ -7,31 +7,28 @@ import matplotlib.pyplot as plt;
 from utils.distributed import DistributedUtils;
 import pybdsf_analysis.recursive_file_analyzer as rfa;
 from utils.logging import get_logger;
+from pybdsf_analysis.power_transform import PeakFluxPowerTransformer;
+from completeness.img_data_arrays import ImageDataArrays;
 
 logger = get_logger( __name__ );
 
 def plot_flux_vs_residuals():
+    pt = PeakFluxPowerTransformer();
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
-        resid_analyzer = ImageAnalyzer( f"{subdir}/gaus_resid", fits_input_dir=utils.paths.PYBDSF_EXPORT_IMAGE_PARENT, write_catalog=False );
+        data_arrays = ImageDataArrays( subdir );
+        transformed_peak_fluxes = pt.transform( data_arrays.peak_fluxes / 1000 );
 
         # Delta - summed clipped residuals, per image
-        resid_values, resid_indexes = resid_analyzer.for_each( rfa.get_fits_primaryhdu_data, progress_bar_desc=f'Collecting {subdir} residuals', return_nums=True );
-        resid_values = np.array( resid_values );
-        rv_clipped = np.where( resid_values > 0, resid_values, 0 );
-        delta = np.sum( rv_clipped, axis=tuple( [ i for i in range( 1, len( resid_values.shape ) ) ] ) );
+        resid_images = data_arrays.residual_images / data_arrays.image_scale_factors[ :, np.newaxis, np.newaxis ]; #transform to 0-1 scale
+        rv_clipped = np.where( resid_images > 0, resid_images, 0 );
+        delta = np.sum( rv_clipped, axis=tuple( [ i for i in range( 1, len( resid_images.shape ) ) ] ) );
 
         # Scaled flux 
-        analyzer = ImageAnalyzer( subdir, write_catalog=False );
-        scaled_flux, scaled_indexes = analyzer.for_each( rfa.get_fits_primaryhdu_header, progress_bar_desc=f'Collecting {subdir} box-cox fluxes', return_nums=True, kwargs=dict( key='FXSCLD' ) );
-        scaled_flux = np.array( scaled_flux );
+        scaled_flux = transformed_peak_fluxes;
 
-        # Combined points
-        intersect, comm1, comm2 = np.intersect1d( resid_indexes, scaled_indexes, return_indices=True );
-        pts = np.array( (delta[ comm1 ], scaled_flux[ comm2 ]) );
-
-        plt.scatter( pts[ 1 ], pts[ 0 ], label=subdir, 
-                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b',
-                     s=0.001 );
+        plt.scatter( scaled_flux, delta, label=subdir, 
+                    color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b',
+                    s=1 );
 
     plt.xlabel( 'Scaled Flux' );
     plt.ylabel( 'Image Delta' );

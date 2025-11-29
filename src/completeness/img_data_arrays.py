@@ -37,7 +37,7 @@ class ImageDataArrays:
 
         if load_from_files:
             parent = utils.paths.NP_ARRAY_PARENT;
-            for array_name in [ 'images', 'residual_images', 'model_images', 'model_fluxes', 'peak_fluxes', 'sigma_clipped_means', 'sigma_clipped_rmsds' ]:
+            for array_name in [ 'images', 'residual_images', 'model_images', 'model_fluxes', 'peak_fluxes', 'sigma_clipped_means', 'sigma_clipped_rmsds', 'image_scale_factors' ]:
                 try:
                     val = np.load( parent / subdir / ( array_name + '.npy' ) )
                     setattr( self, array_name, val );
@@ -122,6 +122,7 @@ class ImageDataArrays:
             self.peak_fluxes = peak_fluxes_mjy;
             self.sigma_clipped_means = unscaled_sigma_clipped_means;
             self.sigma_clipped_rmsds = unscaled_sigma_clipped_rmsds;
+            self.image_scale_factors = image_scale_factors;
 
             self.save_all_arrays();
 

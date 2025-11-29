@@ -15,7 +15,7 @@ Quick and dirty script to plot unscaled peak fluxes vs pybdsf-measured model flu
 """
 if __name__ == "__main__":
     for subdir in [ utils.paths.GENERATED_SUBDIR, utils.paths.DATASET_SUBDIR ]:
-        images, resid_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
+        images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
         plt.scatter( peak_fluxes, model_fluxes, label=subdir, c='b' if subdir == utils.paths.DATASET_SUBDIR else 'g' );
 
     plt.xscale( 'log' );

@@ -98,8 +98,8 @@ def get_model_flux( path: Path ):
         filedata = file.read();
     exp = re.compile( r"Total flux density in model ............. : (\d+\.\d+) Jy" );
     match = exp.search( filedata );
-    if match is None: print( str( path ) );
-    flux = float( match.group( 1 ) );
+    if match is None: flux = 0; # Log won't have this line if no flux is found - so set model flux to 0
+    else: flux = float( match.group( 1 ) );
     return flux;
 
 def get_mean( path: Path ):

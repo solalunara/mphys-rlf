@@ -28,7 +28,7 @@ def plot_flux_vs_residuals():
 
         plt.scatter( scaled_flux, delta, label=subdir, 
                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b',
-                    s=1 );
+                    s=0.001 );
 
     plt.xlabel( 'Scaled Flux' );
     plt.ylabel( 'Image Delta' );

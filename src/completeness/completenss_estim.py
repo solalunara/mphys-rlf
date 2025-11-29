@@ -63,19 +63,15 @@ def create_noise_LOFAR(shape=(80,80), rms=rms_LOFAR):
 
 def get_completeness_estim():
     plt.figure(figsize = (8, 5))
-    for subdir in [ utils.paths.GENERATED_SUBDIR, utils.paths.DATASET_SUBDIR ]:
-        images, resid_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
+    N_NOISE_PATCHES = 100;
+    for subdir in [ utils.paths.GENERATED_SUBDIR ]:
+        images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
 
-        if subdir == utils.paths.DATASET_SUBDIR:
-            NUM_MOCKS = 100;
-            NUM_SCALE_FACTORS = 100;
-            mock_fluxes = np.empty( (NUM_MOCKS*NUM_SCALE_FACTORS), dtype=float );
-            detectable = np.empty( (NUM_MOCKS*NUM_SCALE_FACTORS), dtype=bool );
-        else:
-            mock_fluxes = np.empty( (images.shape[ 0 ]), dtype=float );
-            detectable = np.empty( (images.shape[ 0 ]), dtype=bool );
+        mock_fluxes = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=float );
+        detectable = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=bool );
 
-        for i in tqdm( range( images.shape[ 0 ] if subdir == utils.paths.GENERATED_SUBDIR else NUM_MOCKS ), desc='Calculating mock images' ):
+
+        for i in tqdm( range( images.shape[ 0 ] ), desc='Calculating mock images' ):
             #rms = image_rmss_actual[ random_image ];
             #noise_patch = resid_images[ random_image ];
 
@@ -83,30 +79,13 @@ def get_completeness_estim():
             # because the majority of the noise is from the artificial 1% noise added for pybdsf
             # TODO: Use raw LOFAR data so we can get rms locally based on strength of source, potential code commented above
             rms = rms_LOFAR;
-            if subdir == utils.paths.DATASET_SUBDIR:
-                # Mix a random data image with a random residual image
-                flux_scale_factors = scipy.stats.loguniform.rvs( 10**(-3), 10**(2), size=NUM_SCALE_FACTORS );
-                random_image = int( random.random() * images.shape[ 0 ] )
-                for j in range( len( flux_scale_factors ) ):
-                    flux_scale_factor = flux_scale_factors[ j ];
-                    s_mock = flux_scale_factor * model_fluxes[ random_image ];
-                    mock_fluxes[ i * NUM_MOCKS + j ] = s_mock;
-                    mock_data = flux_scale_factor * images[ random_image ];
-                    noise_patch = create_noise_LOFAR( rms=rms );
-                    sim_data = noise_patch + mock_data;
+            mock_fluxes[ i:(i+N_NOISE_PATCHES) ] = model_fluxes[ i ][ np.newaxis ];
+            noise_patches = create_noise_LOFAR( shape=(N_NOISE_PATCHES,80,80), rms=rms );
+            sim_data = noise_patches + images[ i ][ np.newaxis, :, : ];
 
-                    peak_flux = np.max( sim_data );
-                    threshold = 5 * rms;
-                    detectable[ i * NUM_MOCKS + j ] = peak_flux >= threshold;
-
-            else:
-                mock_fluxes[ i ] = model_fluxes[ i ];
-                noise_patch = create_noise_LOFAR( rms=rms );
-                sim_data = noise_patch + images[ i ];
-
-                peak_flux = np.max( sim_data );
-                threshold = 5 * rms;
-                detectable[ i ] = peak_flux >= threshold;
+            peak_fluxes = np.max( sim_data, axis=(1,2) );
+            threshold = 5 * rms;
+            detectable[ i:(i+N_NOISE_PATCHES) ] = peak_fluxes >= threshold;
 
 
         test_mock = pd.DataFrame()

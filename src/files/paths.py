@@ -4,7 +4,7 @@ from utils.distributed import DistributedUtils;
 
 def make_folders():
     # Create folders and symlinks
-    for p in [pth.MODEL_PARENT, pth.ANALYSIS_PARENT, pth.IMG_DATA_PARENT, pth.FITS_PARENT, pth.PYBDSF_PARENT, pth.MAXVALS_PARENT, pth.FLAGS_PARENT]:
+    for p in [pth.MODEL_PARENT, pth.ANALYSIS_PARENT, pth.IMG_DATA_PARENT, pth.FITS_PARENT, pth.PYBDSF_PARENT, pth.NP_ARRAY_PARENT, pth.FLAGS_PARENT]:
         # Make folder if it doesn't exist
         if not p.exists():
             p.mkdir()
@@ -32,7 +32,8 @@ def make_folders():
     for f in [pth.FITS_PARENT,
               pth.PYBDSF_CATALOG_PARENT,
               pth.PYBDSF_EXPORT_IMAGE_PARENT,
-              pth.PYBDSF_LOG_PARENT]:
+              pth.PYBDSF_LOG_PARENT,
+              pth.NP_ARRAY_PARENT]:
         if not f.exists():
             f.mkdir()
         for g in [pth.DATASET_SUBDIR, pth.GENERATED_SUBDIR]:

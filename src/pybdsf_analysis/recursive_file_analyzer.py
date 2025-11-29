@@ -152,7 +152,7 @@ class RecursiveFileAnalyzer:
         files = self.get_unwrapped_list( self.path, pattern, numeric_range, return_nums );
         return_values = [ None ] * len( files );
         if return_nums:
-            return_numbers = np.empty( (len( files )) );
+            return_numbers = np.empty( (len( files )), dtype=int );
         i = 0;
         if progress_bar_desc is not None:
             arr = tqdm( files, desc=progress_bar_desc, total=len( files ) );

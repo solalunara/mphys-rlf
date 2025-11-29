@@ -17,7 +17,8 @@ analysis_results/
 image_data/
 model_results/
 fits_images*/
-maxvals*/
+maxvals/
+nparrays/
 pybdsf_catalogs*/
 dr2_cutouts*/
 pybdsf*/

@@ -14,7 +14,7 @@ ANALYSIS_PARENT = STORAGE_PARENT / "analysis_results"
 IMG_DATA_PARENT = STORAGE_PARENT / "image_data"
 FITS_PARENT = STORAGE_PARENT / "fits_images"
 PYBDSF_PARENT = STORAGE_PARENT / "pybdsf"
-MAXVALS_PARENT = STORAGE_PARENT / "maxvals"
+NP_ARRAY_PARENT = STORAGE_PARENT / "nparrays"
 FLAGS_PARENT = STORAGE_PARENT / "flagfiles"
 
 # Model configuration presets

@@ -6,6 +6,7 @@ import h5py;
 import numpy as np;
 from pathlib import Path;
 from sklearn.preprocessing import PowerTransformer;
+from files.paths import single_node_prepare_folders;
 
 def write_maxvals_of_h5_to_file( outfile: Path, infile: Path ):
     """
@@ -43,7 +44,10 @@ class PeakFluxPowerTransformer:
         if not LOFAR_DATA_PATH.exists():
             single_node_download_dataset();
 
-        self.maxvals_path = pth.MAXVALS_PARENT / 'maxvals.npy';
+        self.logger.debug( 'Making sure all folders exist...' );        
+        single_node_prepare_folders();
+
+        self.maxvals_path = pth.NP_ARRAY_PARENT / 'maxvals.npy';
         self.logger.debug( 'Dataset downloaded. Saving dataset maxvals to %s...', self.maxvals_path );
         if not self.maxvals_path.exists():
             self.du.single_task_only_forcewait( 'write_maxvals_of_h5_to_file', write_maxvals_of_h5_to_file, 0, self.maxvals_path, LOFAR_DATA_PATH );

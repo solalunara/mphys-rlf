@@ -84,16 +84,21 @@ class ImageDataArrays:
             inds_array = [ log_analyzer_inds, data_inds, residual_indexes, model_indexes ];
             values_array = [ log_analyzer_values, data_values, residual_values, model_values ];
             intersect = reduce( lambda x, y : np.intersect1d( x, y, assume_unique=True ), inds_array );
-            common_inds_array = [ inds[ np.isin( inds, intersect, assume_unique=True ) ] for inds in inds_array ];
             for i in range( len( inds_array ) ):
                 for j in range( len( values_array[ i ] ) ):
                     values = values_array[ i ][ j ];
-                    common_inds = common_inds_array[ i ];
-                    values_array[ i ][ j ] = values[ common_inds ];
+
+                    # Get index of indices in inds_array[ i ] that are in the intersection ordered by the intersection
+                    # Source - https://stackoverflow.com/a/32191125
+                    # Posted by Alex Riley, modified by community. See post 'Timeline' for change history
+                    # Retrieved 2025-12-02, License - CC BY-SA 3.0
+                    sorter = np.argsort( inds_array[ i ] )
+                    index_indices = sorter[ np.searchsorted( inds_array[ i ], intersect, sorter=sorter ) ]
+
+                    values_array[ i ][ j ] = values[ index_indices ];
 
             # Unwrap everything into its original values
             log_analyzer_values, data_values, residual_values, model_values = values_array;
-            log_analyzer_inds, data_inds, residual_indexes, model_indexes = common_inds_array;
             normalized_model_fluxes, sigma_clipped_means, sigma_clipped_rmsds, unclipped_rmsds = log_analyzer_values;
             images, peak_fluxes_transformed = data_values; # or images, delt1, delt2, peak_fluxes_transformed = data_values
             residual_images, = residual_values

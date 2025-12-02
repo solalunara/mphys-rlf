@@ -51,7 +51,7 @@ class DatabaseCreator:
             hdul = hdul[2:]
 
             # Extract the pixel values from each imageHDU
-            for idx, hdu in enumerate(tqdm(hdul, desc="Loading Hardcastle Catalogue")):
+            for idx, hdu in enumerate(tqdm(hdul, desc="Extracting pixel values from Hardcastle catalogue")):
                 try:
                     catalogue_data.append({'index': idx, 'pixel_values': hdu.data})
                 except Exception as e:
@@ -127,7 +127,7 @@ class DatabaseCreator:
             # matches because there's no guarantee that an exact match in pixel sum means every pixel is identical.
             # Get a list of 10 indices around the closest match to check for actual pixel equality
             candidate_indices = []
-            for offset in range(-5, 6):
+            for offset in range(-10, 11):
                 candidate_idx = closest_match_idx + offset # generate new index
                 if 0 <= candidate_idx < len(hdc_sums): # ensure it's within bounds
                     candidate_indices.append(candidate_idx)
@@ -137,12 +137,12 @@ class DatabaseCreator:
 
             # Now check these candidate indices for actual pixel equality
             matched = False
-            lof_pixels = lof_item.flatten()
+            lof_pixels = lof_item.flatten()  # this is done for ease of access, the final product is not flattened
             for candidate_idx in candidate_indices:
                 hdc_pixels = hdc_images[candidate_idx]['clipped_values'].flatten()
                 try:
                     for j in range(len(lof_pixels)):
-                        if hdc_pixels[j] != lof_pixels[j]:
+                        if hdc_pixels[j] != lof_pixels[j]:  # encountered a pixel that doesn't match!
                             break
                     else:
                         matched = True
@@ -157,8 +157,24 @@ class DatabaseCreator:
                 matches.append({'lofar_index': idx, 'hardcastle_index': matching_idx, 'per_pixel_match': True})
 
             else:
-                self.logger.info(f'No exact match found for LOFAR item index {idx}. Found closest match...')
-                matches.append({'lofar_index': idx, 'hardcastle_index': sorted_indices[closest_match_idx], 'per_pixel_match': False})
+                self.logger.info(f'No exact match found for LOFAR item index {idx}. Finding closest pixel match...')
+
+                # The closest match should not actually be the closest in pixel value sum, but in the sum of pixel differences
+                # Avoids the situation where completely different images happen to have very close pixel value sums
+                pixels_match_idx = -1
+                pixels_diff = float('inf')
+                for candidate_idx in candidate_indices:
+                    hdc_pixels = hdc_images[candidate_idx]['clipped_values'].flatten()
+                    try:
+                        pixel_diff = np.nansum(np.abs(lof_pixels - hdc_pixels))
+                        if pixel_diff < pixels_diff:  # found new lowest pixel diff
+                            pixels_diff = pixel_diff
+                            pixels_match_idx = candidate_idx
+                    except Exception as e:
+                        self.logger.error(f"Error calculating pixel difference for Hardcastle item {candidate_idx}: {e}")
+
+                self.logger.info(f'Closest match for LOFAR item index {idx} is Hardcastle catalogue index {pixels_match_idx} with pixel difference {pixels_diff}.')
+                matches.append({'lofar_index': idx, 'hardcastle_index': sorted_indices[pixels_match_idx], 'per_pixel_match': False})
 
         return matches
 

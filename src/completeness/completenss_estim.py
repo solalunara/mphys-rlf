@@ -63,7 +63,7 @@ def create_noise_LOFAR(shape=(80,80), rms=rms_LOFAR):
 
 def get_completeness_estim():
     plt.figure(figsize = (8, 5))
-    N_NOISE_PATCHES = 100;
+    N_NOISE_PATCHES = 5;
     for subdir in [ utils.paths.GENERATED_SUBDIR ]:
         images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
 
@@ -118,10 +118,11 @@ def get_completeness_estim():
 
         # Handle confidence interval with poisson_conf_interval for total_counts = 0
         total_counts = np.array( total_counts );
-        nonzero_counts = total_counts > 0;
-        total_counts = np.where( nonzero_counts, total_counts, 1e-10 );
-        conf_interval = astropy.stats.poisson_conf_interval( np.array( completeness ) * total_counts, sigma=1.0, interval='frequentist-confidence' ) / total_counts;
-        conf_interval[ :, nonzero_counts ] = 0;
+        zero_counts = total_counts == 0;
+        total_counts = np.where( zero_counts, 1e-10, total_counts );
+        conf_interval = astropy.stats.poisson_conf_interval( np.array( completeness ) * total_counts, interval='frequentist-confidence', sigma=1.0 );
+        conf_interval /= total_counts;
+        conf_interval[ :, zero_counts ] = 0;
         yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
 
         # Plot completeness curve

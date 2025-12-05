@@ -77,6 +77,7 @@ def get_completeness_estim():
             in_bin = (model_fluxes >= flux_bins[i]) & (model_fluxes < flux_bins[i + 1])
             total_counts[ i ] = np.sum( in_bin )
         samples_per_bin_average = np.average( total_counts[ bin_centers > 10 ] )
+        print( f'Average samples per bin >10mJy: {samples_per_bin_average}' )
 
         detectable = model_fluxes > 0
         detectable_model_fluxes = model_fluxes[ detectable ]
@@ -86,7 +87,7 @@ def get_completeness_estim():
 
         for i in range(len(flux_bins) - 1):
             # Select sources in this flux bin
-            detected_in_bin = np.array( np.where( (detectable_model_fluxes >= flux_bins[i]) & (detectable_model_fluxes < flux_bins[i + 1]) ) )
+            detected_in_bin, = np.where( np.logical_and( detectable_model_fluxes >= flux_bins[i], detectable_model_fluxes < flux_bins[i + 1] ) )
             n_detect = detected_in_bin.shape[ 0 ]
             completeness[ i ] = n_detect / samples_per_bin_average
 

@@ -139,7 +139,7 @@ class DatabaseCreator:
 
             # Convert sorted indices back to original LOFAR indices so we can access the corresponding images
             # candidate_indices = [sorted_indices[i] for i in candidate_indices]
-            candidate_indices = [np.argwhere(sorted_indices==idx)[0] for idx in candidate_indices]
+            candidate_indices = [int(np.argwhere(sorted_indices==idx)[0]) for idx in candidate_indices]
 
             # Now check these candidate indice s for actual pixel equality
             matched = False

@@ -63,7 +63,6 @@ def create_noise_LOFAR(shape=(80,80), rms=rms_LOFAR):
 
 def get_completeness_estim():
     plt.figure(figsize = (8, 5))
-    N_NOISE_PATCHES = 5;
     for subdir in [ utils.paths.GENERATED_SUBDIR ]:
         images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
 
@@ -76,7 +75,8 @@ def get_completeness_estim():
         for i in range(len(flux_bins) - 1):
             in_bin = (model_fluxes >= flux_bins[i]) & (model_fluxes < flux_bins[i + 1])
             total_counts[ i ] = np.sum( in_bin )
-        samples_per_bin_average = np.average( total_counts[ bin_centers > 10 ] )
+        #samples_per_bin_average = np.average( total_counts[ bin_centers > 10 ] )
+        samples_per_bin_average = 1
         print( f'Average samples per bin >10mJy: {samples_per_bin_average}' )
 
         detectable = model_fluxes > 0
@@ -93,20 +93,19 @@ def get_completeness_estim():
 
         # Handle confidence interval with poisson_conf_interval for total_counts = 0
         conf_interval = astropy.stats.poisson_conf_interval( completeness * samples_per_bin_average, interval='frequentist-confidence', sigma=1.0 );
-        conf_interval[ :, total_counts != 0 ] /= total_counts[ total_counts != 0 ];
+        #conf_interval[ :, total_counts != 0 ] /= total_counts[ total_counts != 0 ];
         yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
 
         # Plot completeness curve
 
         plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' );
 
-        plt.plot(bin_centers, completeness, marker='.', label = f'{subdir} completeness', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
+        plt.step(bin_centers, completeness, marker='.', label = f'{subdir}', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
         plt.xscale('log')
-        plt.ylim(0, 1.1)
-        plt.xlabel("Flux Density (mJy)")
+        plt.xlabel("Integrated Flux Density (mJy)")
         plt.ylabel("Samples per Bin")
-        plt.title("Normalized PyBDSF Resolved Sources per Integrated Flux Bin")
+        plt.title("PyBDSF Resolved Sources per Integrated Flux Bin")
         plt.grid(True)
         plt.legend()
     plt.show()

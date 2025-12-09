@@ -77,7 +77,7 @@ class DistributedUtils:
             The function to call only once.
         do_on_array_id : int
             The array id on which to call the function. All other array ids must wait for this function
-            
+ 
         *args, **kwargs
             arguments to pass to the function call
         """

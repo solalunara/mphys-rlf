@@ -22,5 +22,5 @@ echo "Array Count:"
 echo $SLURM_ARRAY_TASK_COUNT
 echo ">>>starting program"
 export N_CPUS=$SLURM_CPUS_PER_TASK
-python /share/nas2_3/lgreen/mphys-rlf/src/pybdsf_analysis/generate_fits_files.py --distribution loguniform --upper 1000 --lower 0.0001
+python /share/nas2_3/lgreen/mphys-rlf/src/pybdsf_analysis/generate_fits_files.py --distribution loguniform --upper 10 --lower 0.0000001 -n 100000
 

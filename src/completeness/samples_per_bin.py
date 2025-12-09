@@ -103,7 +103,7 @@ def get_completeness_estim():
         #plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' );
 
         plt.plot(bin_centers, samples_per_bin, marker='.', label = f'{subdir} total counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
-        plt.plot(bin_centers, detected_samples_per_bin, marker='-', label = f'{subdir} detected counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
+        plt.plot(bin_centers, detected_samples_per_bin, marker='_', label = f'{subdir} detected counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
         plt.xscale('log')
         plt.xlabel("Integrated Flux Density (mJy)")

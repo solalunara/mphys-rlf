@@ -183,7 +183,7 @@ class DatabaseCreator:
                         self.logger.error(f"Error calculating pixel difference for Hardcastle item {candidate_idx}: {e}")
 
                 self.logger.info(f'Closest match for LOFAR item index {idx} is Hardcastle catalogue index {pixels_match_idx} with pixel difference {pixels_diff}.')
-                matches.append({'lofar_index': idx, 'hardcastle_index': hdc_sums[pixels_match_idx][1], 'per_pixel_match': False})
+                matches.append({'lofar_index': idx, 'hardcastle_index': int(hdc_sums[pixels_match_idx][1]), 'per_pixel_match': False})
 
         return matches
 

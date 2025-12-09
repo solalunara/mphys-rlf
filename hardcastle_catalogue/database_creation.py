@@ -91,15 +91,18 @@ class DatabaseCreator:
         # Had this idea -- you can sort the Hardcastle pixel values array by total pixel value sum, which then, by computing
         # the same for the LOFAR catalogue, would allow the usage of e.g., a binary search to find matches faster.
         self.logger.info("Sorting Hardcastle data for faster matching...")
-        hdc_sums = np.array([np.nansum(image['clipped_values']) for image in hdc_images])
-        sorted_indices = np.argsort(hdc_sums)
-        self.logger.info(f'Lowest Hardcastle pixel sum: {hdc_sums[sorted_indices[0]]}')
-        self.logger.info(f'Highest Hardcastle pixel sum: {hdc_sums[sorted_indices[-1]]}')
-        self.logger.info(f'Median Hardcastle pixel sum: {hdc_sums[sorted_indices[len(sorted_indices)//2]]}')
+        hdc_sums = np.array([(np.nansum(image['clipped_values']), i) for i, image in enumerate(hdc_images)])
 
-        return hdc_sums[sorted_indices], sorted_indices
+        # Sort the array by pixel sum
+        hdc_sorted = sorted(hdc_sums, key=lambda item: item[0], reverse=False)
+        # hdc_sorted = np.sort(hdc_sums, axis=1)
+        self.logger.info(f'Lowest Hardcastle pixel sum: {hdc_sorted[0][0]}')
+        self.logger.info(f'Highest Hardcastle pixel sum: {hdc_sorted[-1][0]}')
+        self.logger.info(f'Median Hardcastle pixel sum: {hdc_sorted[len(hdc_sorted)//2][0]}')
 
-    def find_dataset_matches(self, lofar_images, hdc_images, hdc_sums, sorted_indices):
+        return hdc_sorted
+
+    def find_dataset_matches(self, lofar_images, hdc_images, hdc_sums):
         self.logger.info("Finding dataset matches...")
         matches = []
         for idx, lof_item in tqdm(enumerate(lofar_images), desc="Finding matches"):
@@ -113,7 +116,7 @@ class DatabaseCreator:
             left, right = 0, len(hdc_sums) - 1 # establish search bounds
             while left <= right:  # exit condition i.e., if we ever get left > right, no match has been found
                 mid = (left + right) // 2  # get the middle position in the current search range
-                mid_value = hdc_sums[mid] # get the Hardcastle sum at that position
+                mid_value = hdc_sums[mid][0] # get the Hardcastle sum at that position
 
                 # Update the closest match; this is here in case no match is found, we still have the closest one
                 if abs(mid_value - lof_sum) < closest_match_diff:
@@ -138,8 +141,8 @@ class DatabaseCreator:
                     candidate_indices.append(candidate_idx)
 
             # Convert sorted indices back to original LOFAR indices so we can access the corresponding images
-            # candidate_indices = [sorted_indices[i] for i in candidate_indices]
-            candidate_indices = [np.argwhere(sorted_indices==idx)[0] for idx in candidate_indices]
+            # candidate_indices = [int(np.argwhere(sorted_indices==idx)[0]) for idx in candidate_indices]
+            candidate_indices = [int(hdc_sums[idx][1]) for idx in candidate_indices]
 
             # Now check these candidate indice s for actual pixel equality
             matched = False
@@ -180,7 +183,7 @@ class DatabaseCreator:
                         self.logger.error(f"Error calculating pixel difference for Hardcastle item {candidate_idx}: {e}")
 
                 self.logger.info(f'Closest match for LOFAR item index {idx} is Hardcastle catalogue index {pixels_match_idx} with pixel difference {pixels_diff}.')
-                matches.append({'lofar_index': idx, 'hardcastle_index': np.argwhere(sorted_indices==pixels_match_idx)[0], 'per_pixel_match': False})
+                matches.append({'lofar_index': idx, 'hardcastle_index': int(hdc_sums[pixels_match_idx][1]), 'per_pixel_match': False})
 
         return matches
 
@@ -227,15 +230,32 @@ class DatabaseCreator:
         """
         self.logger.info("Starting database creation process...")
 
-        # Load the two datasets
+        # NOTE - I GET MEMORY ERROR WHEN RUNNING THIS. MAY WORK ON GALAHAD AS MORE AVAILABLE MEMORY, BUT CAN'T SAVE
+        # SUCH LARGE NUMPY FILES
+        # # Check to see if a .npy file for the sorted Hardcastle data exists; if so, load it to save time
+        # if os.path.exists('hardcastle_catalogue/sorted_hardcastle_sums.npy') and os.path.exists('hardcastle_catalogue/hardcastle_clipped_images.npy'):
+        #     self.logger.info("Loading Hardcastle images & sorted sums from .npy file...")
+        #     hdc_catalogue = np.load('hardcastle_catalogue/hardcastle_clipped_images.npy')
+        #     hdc_sums = np.load('hardcastle_catalogue/sorted_hardcastle_sums.npy')
+        # else:
+        #     self.logger.info("Missing .npy files for Hardcastle data; loading from FITS file...")
+        #     header_info, hdc_catalogue = self.load_hardcastle_catalogue()
+        #     hdc_sums = self.sort_hardcastle_data(hdc_catalogue)
+        #
+        #     # Save to .npy files for future usage
+        #     self.logger.info("Saving Hardcastle images & sorted sums to .npy files for future usage...")
+        #     np.save('hardcastle_catalogue/hardcastle_clipped_images.npy', hdc_catalogue)
+        #     np.save('hardcastle_catalogue/sorted_hardcastle_sums.npy', hdc_sums)
+
+        # Load Hardcastle stuff and sort it
         header_info, hdc_catalogue = self.load_hardcastle_catalogue()
+        hdc_sums = self.sort_hardcastle_data(hdc_catalogue)
+
+        # Load the LOFAR data (super fast so no need to store in a huge file)
         lofar_values = self.load_given_LOFAR_data()
 
-        # Sort the LOFAR data for faster matching
-        hdc_sums, sorted_indices = self.sort_hardcastle_data(hdc_catalogue)
-
         # Find matches
-        matched_items = self.find_dataset_matches(lofar_values, hdc_catalogue, hdc_sums, sorted_indices)
+        matched_items = self.find_dataset_matches(lofar_values, hdc_catalogue, hdc_sums)
 
         # Save the matches to a file
         self.save_matches_and_info(matched_items)

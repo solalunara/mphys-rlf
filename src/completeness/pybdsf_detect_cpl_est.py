@@ -67,62 +67,33 @@ def get_completeness_estim():
     for subdir in [ utils.paths.GENERATED_SUBDIR ]:
         images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
 
-        mock_fluxes = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=float );
-        detectable = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=bool );
+        detectable = np.empty( (images.shape[ 0 ]), dtype=bool );
 
-
-        for i in tqdm( range( images.shape[ 0 ] ), desc='Calculating mock images' ):
-            #rms = image_rmss_actual[ random_image ];
-            #noise_patch = resid_images[ random_image ];
-
-            # Using rms=image_rmss_actual[ random_image ] is technically correct yet utterly useless
-            # because the majority of the noise is from the artificial 1% noise added for pybdsf
-            # TODO: Use raw LOFAR data so we can get rms locally based on strength of source, potential code commented above
-            rms = rms_LOFAR;
-            mock_fluxes[ i:(i+N_NOISE_PATCHES) ] = model_fluxes[ i ][ np.newaxis ];
-            noise_patches = create_noise_LOFAR( shape=(N_NOISE_PATCHES,80,80), rms=rms );
-            sim_data = noise_patches + images[ i ][ np.newaxis, :, : ];
-
-            peak_fluxes = np.max( sim_data, axis=(1,2) );
-            threshold = 5 * rms;
-            detectable[ i:(i+N_NOISE_PATCHES) ] = peak_fluxes >= threshold;
-
-
-        test_mock = pd.DataFrame()
-        #test_mock['mock_flux'] = mock_fluxes.ravel()
-        #test_mock['detectable'] = detectable.ravel()
-        test_mock['mock_flux'] = mock_fluxes;
-        test_mock['detectable'] = detectable;
-
-        # Define flux bins
+        # Define flux bins and get the average samples per bin for > 10 mJy (before we start having issues)
         flux_bins = np.logspace( -2, 2, num=25 )
         bin_centers = 0.5 * (flux_bins[1:] + flux_bins[:-1])
+        total_counts = np.empty( len( flux_bins ) - 1, dtype=float )
+        for i in range(len(flux_bins) - 1):
+            in_bin = (model_fluxes >= flux_bins[i]) & (model_fluxes < flux_bins[i + 1])
+            total_counts[ i ] = np.sum( in_bin )
+        samples_per_bin_average = np.average( total_counts[ bin_centers > 10 ] )
+        print( f'Average samples per bin >10mJy: {samples_per_bin_average}' )
+
+        detectable = model_fluxes > 0
+        detectable_model_fluxes = model_fluxes[ detectable ]
 
         # Bin and count
-        completeness = []   # to store completeness per bin
-        total_counts = []   # optional: for diagnostics
+        completeness = np.empty( len( flux_bins ) - 1, dtype=float )
 
         for i in range(len(flux_bins) - 1):
             # Select sources in this flux bin
-            in_bin = (mock_fluxes >= flux_bins[i]) & (mock_fluxes < flux_bins[i + 1])
-
-            n_detect = test_mock[ (test_mock['mock_flux'] >= flux_bins[i]) & (test_mock['mock_flux'] < flux_bins[i + 1]) ]
-            
-            if np.sum(in_bin) > 0:
-                frac_recovered = np.sum(n_detect['detectable']) / np.sum(in_bin)
-            else:
-                frac_recovered = 0  
-
-            completeness.append(frac_recovered)
-            total_counts.append(np.sum(in_bin))
+            detected_in_bin, = np.where( np.logical_and( detectable_model_fluxes >= flux_bins[i], detectable_model_fluxes < flux_bins[i + 1] ) )
+            n_detect = detected_in_bin.shape[ 0 ]
+            completeness[ i ] = n_detect / samples_per_bin_average
 
         # Handle confidence interval with poisson_conf_interval for total_counts = 0
-        total_counts = np.array( total_counts );
-        zero_counts = total_counts == 0;
-        total_counts = np.where( zero_counts, 1e-10, total_counts );
-        conf_interval = astropy.stats.poisson_conf_interval( np.array( completeness ) * total_counts, interval='frequentist-confidence', sigma=1.0 );
-        conf_interval /= total_counts;
-        conf_interval[ :, zero_counts ] = 0;
+        conf_interval = astropy.stats.poisson_conf_interval( completeness * samples_per_bin_average, interval='frequentist-confidence', sigma=1.0 );
+        conf_interval[ :, total_counts != 0 ] /= total_counts[ total_counts != 0 ];
         yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
 
         # Plot completeness curve
@@ -134,8 +105,8 @@ def get_completeness_estim():
         plt.xscale('log')
         plt.ylim(0, 1.1)
         plt.xlabel("Flux Density (mJy)")
-        plt.ylabel("Completeness")
-        plt.title("Flux Density Completeness Curve")
+        plt.ylabel("Samples per Bin")
+        plt.title("Normalized PyBDSF Resolved Sources per Integrated Flux Bin")
         plt.grid(True)
         plt.legend()
     plt.show()

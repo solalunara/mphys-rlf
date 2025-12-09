@@ -69,43 +69,46 @@ def get_completeness_estim():
         detectable = np.empty( (images.shape[ 0 ]), dtype=bool );
 
         # Define flux bins and get the average samples per bin for > 10 mJy (before we start having issues)
-        flux_bins = np.logspace( -2, 2, num=25 )
+        flux_bins = np.logspace( -2, 4, num=25 )
         bin_centers = 0.5 * (flux_bins[1:] + flux_bins[:-1])
         total_counts = np.empty( len( flux_bins ) - 1, dtype=float )
         for i in range(len(flux_bins) - 1):
             in_bin = (model_fluxes >= flux_bins[i]) & (model_fluxes < flux_bins[i + 1])
             total_counts[ i ] = np.sum( in_bin )
         #samples_per_bin_average = np.average( total_counts[ bin_centers > 10 ] )
-        samples_per_bin_average = 1
-        print( f'Average samples per bin >10mJy: {samples_per_bin_average}' )
+        #print( f'Average samples per bin >10mJy: {samples_per_bin_average}' )
 
         detectable = model_fluxes > 0
         detectable_model_fluxes = model_fluxes[ detectable ]
 
         # Bin and count
-        completeness = np.empty( len( flux_bins ) - 1, dtype=float )
+        samples_per_bin = np.empty( len( flux_bins ) - 1, dtype=float )
+        detected_samples_per_bin = np.empty( len( flux_bins ) - 1, dtype=float )
 
         for i in range(len(flux_bins) - 1):
             # Select sources in this flux bin
+            total_in_bin, = np.where( np.logical_and( model_fluxes >= flux_bins[i], model_fluxes < flux_bins[i + 1] ) )
             detected_in_bin, = np.where( np.logical_and( detectable_model_fluxes >= flux_bins[i], detectable_model_fluxes < flux_bins[i + 1] ) )
-            n_detect = detected_in_bin.shape[ 0 ]
-            completeness[ i ] = n_detect / samples_per_bin_average
+            #completeness[ i ] = detected_in_bin.shape[ 0 ] / samples_per_bin_average
+            detected_samples_per_bin[ i ] = detected_in_bin.shape[ 0 ]
+            samples_per_bin[ i ] = total_in_bin.shape[ 0 ]
 
         # Handle confidence interval with poisson_conf_interval for total_counts = 0
-        conf_interval = astropy.stats.poisson_conf_interval( completeness * samples_per_bin_average, interval='frequentist-confidence', sigma=1.0 );
+        #conf_interval = astropy.stats.poisson_conf_interval( samples_per_bin, interval='frequentist-confidence', sigma=1.0 );
         #conf_interval[ :, total_counts != 0 ] /= total_counts[ total_counts != 0 ];
-        yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
+        #yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
 
         # Plot completeness curve
 
-        plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' );
+        #plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' );
 
-        plt.step(bin_centers, completeness, marker='.', label = f'{subdir}', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
+        plt.plot(bin_centers, total_in_bin, marker='.', label = f'{subdir} total counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
+        plt.plot(bin_centers, detected_in_bin, marker='.', label = f'{subdir} detected counts', color='o' if subdir is utils.paths.DATASET_SUBDIR else 'r' )
 
         plt.xscale('log')
         plt.xlabel("Integrated Flux Density (mJy)")
         plt.ylabel("Samples per Bin")
-        plt.title("PyBDSF Resolved Sources per Integrated Flux Bin")
+        plt.title("Sources per Integrated Flux Bin")
         plt.grid(True)
         plt.legend()
     plt.show()

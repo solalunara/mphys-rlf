@@ -51,23 +51,28 @@ class DatabaseCreator:
             hdul = hdul[2:]
 
             # Extract the pixel values from each imageHDU
-            for idx, hdu in enumerate(tqdm(hdul, desc="Extracting pixel values from Hardcastle catalogue")):
+            for idx, hdu in enumerate(tqdm(hdul, desc="Extracting pixel values & 0-clipping from Hardcastle catalogue")):
                 try:
-                    catalogue_data.append({'index': idx, 'pixel_values': hdu.data})
+                    if isinstance(hdu.data, np.ndarray):
+                        catalogue_data.append({'index': idx, 'clipped_values': np.clip(hdu.data, 0, None)})
+                    else:
+                        catalogue_data.append({'index': idx, 'clipped_values': np.nan})
                 except Exception as e:
                     self.logger.error(f"Error loading Hardcastle catalogue item {idx}: {e}")
-                    catalogue_data.append({'index': idx, 'pixel_values': np.nan})
+                    catalogue_data.append({'index': idx, 'clipped_values': np.nan})
 
-        # 0-clip to match the LOFAR dataset's preprocessing
-        self.logger.info("0-clipping the Hardcastle pixel values...")
-        for i in tqdm(range(len(catalogue_data)), desc="0-clipping Hardcastle values"):
-            try:
-                if isinstance(catalogue_data[i]['pixel_values'], np.ndarray):
-                    catalogue_data[i]['clipped_values'] = np.clip(catalogue_data[i]['pixel_values'], 0, None)
-                else:
-                    catalogue_data[i]['clipped_values'] = np.nan
-            except Exception as e:
-                self.logger.error(f"Error during 0-clipping for Hardcastle item {i}: {e}")
+        # This is now done implicitly; storing too much data in memory was crashing personal laptop so this is better
+
+        # # 0-clip to match the LOFAR dataset's preprocessing
+        # self.logger.info("0-clipping the Hardcastle pixel values...")
+        # for i in tqdm(range(len(catalogue_data)), desc="0-clipping Hardcastle values"):
+        #     try:
+        #         if isinstance(catalogue_data[i]['pixel_values'], np.ndarray):
+        #             catalogue_data[i]['clipped_values'] = np.clip(catalogue_data[i]['pixel_values'], 0, None)
+        #         else:
+        #             catalogue_data[i]['clipped_values'] = np.nan
+        #     except Exception as e:
+        #         self.logger.error(f"Error during 0-clipping for Hardcastle item {i}: {e}")
 
         return header_information, catalogue_data
 
@@ -133,9 +138,10 @@ class DatabaseCreator:
                     candidate_indices.append(candidate_idx)
 
             # Convert sorted indices back to original LOFAR indices so we can access the corresponding images
-            candidate_indices = [sorted_indices[i] for i in candidate_indices]
+            # candidate_indices = [sorted_indices[i] for i in candidate_indices]
+            candidate_indices = [np.argwhere(sorted_indices==idx)[0] for idx in candidate_indices]
 
-            # Now check these candidate indices for actual pixel equality
+            # Now check these candidate indice s for actual pixel equality
             matched = False
             lof_pixels = lof_item.flatten()  # this is done for ease of access, the final product is not flattened
             for candidate_idx in candidate_indices:
@@ -174,7 +180,7 @@ class DatabaseCreator:
                         self.logger.error(f"Error calculating pixel difference for Hardcastle item {candidate_idx}: {e}")
 
                 self.logger.info(f'Closest match for LOFAR item index {idx} is Hardcastle catalogue index {pixels_match_idx} with pixel difference {pixels_diff}.')
-                matches.append({'lofar_index': idx, 'hardcastle_index': sorted_indices[pixels_match_idx], 'per_pixel_match': False})
+                matches.append({'lofar_index': idx, 'hardcastle_index': np.argwhere(sorted_indices==pixels_match_idx)[0], 'per_pixel_match': False})
 
         return matches
 

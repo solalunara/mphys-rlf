@@ -163,7 +163,7 @@ class DatabaseCreator:
             # Exact per-pixel match found - all proof i need!
             if matched:
                 self.logger.info(f'Match found for LOFAR item index {idx} with Hardcastle catalogue index {matching_idx}.')
-                matches.append({'lofar_index': idx, 'hardcastle_index': matching_idx, 'per_pixel_match': True})
+                matches.append({'lofar_index': idx, 'hardcastle_index': matching_idx, 'per_pixel_match': True, 'pixel_difference': 0})
 
             else:
                 self.logger.info(f'No exact match found for LOFAR item index {idx}. Finding closest pixel match...')
@@ -183,7 +183,7 @@ class DatabaseCreator:
                         self.logger.error(f"Error calculating pixel difference for Hardcastle item {candidate_idx}: {e}")
 
                 self.logger.info(f'Closest match for LOFAR item index {idx} is Hardcastle catalogue index {pixels_match_idx} with pixel difference {pixels_diff}.')
-                matches.append({'lofar_index': idx, 'hardcastle_index': int(hdc_sums[pixels_match_idx][1]), 'per_pixel_match': False})
+                matches.append({'lofar_index': idx, 'hardcastle_index': int(hdc_sums[pixels_match_idx][1]), 'per_pixel_match': False, 'pixel_difference': pixels_diff})
 
         return matches
 
@@ -269,5 +269,3 @@ if __name__ == "__main__":
     # same dataset used in the paper.
     db_creator = DatabaseCreator()
     db_creator.create_matching_dataset()
-
-    # TODO: HDC pixel values seem not to be used. Unless I want to save custom FITS files, they can be removed

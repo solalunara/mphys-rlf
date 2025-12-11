@@ -151,7 +151,8 @@ class DatabaseCreator:
                 hdc_pixels = hdc_images[candidate_idx]['clipped_values'].flatten()
                 try:
                     for j in range(len(lof_pixels)):
-                        if hdc_pixels[j] != lof_pixels[j]:  # encountered a pixel that doesn't match!
+                        # if hdc_pixels[j] != lof_pixels[j]:  # encountered a pixel that doesn't match!
+                        if not np.isclose(hdc_pixels[j], lof_pixels[j], atol=1e-6):
                             break
                     else:
                         matched = True

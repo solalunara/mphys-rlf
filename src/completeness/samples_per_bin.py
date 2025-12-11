@@ -1,28 +1,28 @@
-from astropy.io import fits;
-import numpy as np;
-import pybdsf_analysis.pybdsf_run_analysis;
-import scipy.stats;
-from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
-import utils.paths;
-from utils.distributed import DistributedUtils;
-import random;
-from pybdsf_analysis.log_analyzer import LogAnalyzer;
-import pybdsf_analysis.log_analyzer as la;
-import pybdsf_analysis.recursive_file_analyzer as rfa;
-from tqdm import tqdm;
-import astropy.stats;
-import pandas as pd;
-import matplotlib.pyplot as plt;
-from pathlib import Path;
-from pybdsf_analysis.image_analyzer import ImageAnalyzer;
-import h5py;
-from files.dataset import LOFAR_DATA_PATH;
-from sklearn.preprocessing import PowerTransformer;
-from completeness.img_data_arrays import ImageDataArrays;
+from astropy.io import fits
+import numpy as np
+import pybdsf_analysis.pybdsf_run_analysis
+import scipy.stats
+from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer
+import utils.paths
+from utils.distributed import DistributedUtils
+import random
+from pybdsf_analysis.log_analyzer import LogAnalyzer
+import pybdsf_analysis.log_analyzer as la
+import pybdsf_analysis.recursive_file_analyzer as rfa
+from tqdm import tqdm
+import astropy.stats
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+from pybdsf_analysis.image_analyzer import ImageAnalyzer
+import h5py
+from files.dataset import LOFAR_DATA_PATH
+from sklearn.preprocessing import PowerTransformer
+from completeness.img_data_arrays import ImageDataArrays
 
-rms_LOFAR = 71e-6 * 1e3;
-beam_width_LOFAR = ImageAnalyzer.LOFAR_process_arg_defaults[ 'process_beam' ][ :-1 ];
-beam_area_LOFAR = beam_width_LOFAR[ 0 ] * beam_width_LOFAR[ 1 ];
+rms_LOFAR = 71e-6 * 1e3
+beam_width_LOFAR = ImageAnalyzer.LOFAR_process_arg_defaults[ 'process_beam' ][ :-1 ]
+beam_area_LOFAR = beam_width_LOFAR[ 0 ] * beam_width_LOFAR[ 1 ]
 
 def get_noise(data):
     """
@@ -64,9 +64,9 @@ def create_noise_LOFAR(shape=(80,80), rms=rms_LOFAR):
 def get_completeness_estim():
     plt.figure(figsize = (8, 5))
     for subdir in [ utils.paths.GENERATED_SUBDIR ]:
-        images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
+        images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays()
 
-        detectable = np.empty( (images.shape[ 0 ]), dtype=bool );
+        detectable = np.empty( (images.shape[ 0 ]), dtype=bool )
 
         # Define flux bins and get the average samples per bin for > 10 mJy (before we start having issues)
         flux_bins = np.logspace( -2, 4, num=25 )
@@ -94,13 +94,13 @@ def get_completeness_estim():
             samples_per_bin[ i ] = total_in_bin.shape[ 0 ]
 
         # Handle confidence interval with poisson_conf_interval for total_counts = 0
-        #conf_interval = astropy.stats.poisson_conf_interval( samples_per_bin, interval='frequentist-confidence', sigma=1.0 );
-        #conf_interval[ :, total_counts != 0 ] /= total_counts[ total_counts != 0 ];
-        #yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
+        #conf_interval = astropy.stats.poisson_conf_interval( samples_per_bin, interval='frequentist-confidence', sigma=1.0 )
+        #conf_interval[ :, total_counts != 0 ] /= total_counts[ total_counts != 0 ]
+        #yerr = conf_interval[ 1 ] - conf_interval[ 0 ]
 
         # Plot completeness curve
 
-        #plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' );
+        #plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
         plt.plot(bin_centers, samples_per_bin, marker='.', label = f'{subdir} total counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
         plt.plot(bin_centers, detected_samples_per_bin, marker='_', label = f'{subdir} detected counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
@@ -112,12 +112,12 @@ def get_completeness_estim():
         plt.grid(True)
         plt.legend()
     plt.show()
-    plt.savefig( 'cplestim.png' );
+    plt.savefig( 'cplestim.png' )
 
 
 if __name__ == "__main__":
-    pybdsf_analysis.pybdsf_run_analysis.analyze_everything();
+    pybdsf_analysis.pybdsf_run_analysis.analyze_everything()
 
-    du = DistributedUtils();
-    du.last_task_only( 'get_completeness_estim', get_completeness_estim );
+    du = DistributedUtils()
+    du.single_task_only_last( 'get_completeness_estim', get_completeness_estim, 0 )
 

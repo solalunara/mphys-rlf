@@ -13,7 +13,7 @@ def load_hardcastle_catalogue(file_path="combined-release-v1.2-LM_opt_mass.fits"
     with fits.open(file_path) as hdul:
         catalogue_data = hdul[1].data  # Assuming the data is in the first extension
 
-    # We have verified below that the number of resolved flags is about expected; 27 more images than the paper uses, but
+    # We have verified below that the number of resolved flags is about expected 27 more images than the paper uses, but
     # this is how they went from LOFAR's >4.3 million images to 314k
 
     # Print total number of items

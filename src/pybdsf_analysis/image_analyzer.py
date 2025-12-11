@@ -9,21 +9,21 @@
 # more simply than specifying the whole path for two different analyzers
 
 import os
-import bdsf;
-from astropy.io import fits;
+import bdsf
+from astropy.io import fits
 import bdsf.image
-import numpy as np;
-from pathlib import Path, PurePath;
-import multiprocessing;
-import multiprocessing.pool;
-import utils.paths;
-from utils.paths import cast_to_Path;
-import utils.logging;
-from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
-import logging;
-from tqdm import tqdm;
-import files.paths;
-from utils.distributed import DistributedUtils;
+import numpy as np
+from pathlib import Path, PurePath
+import multiprocessing
+import multiprocessing.pool
+import utils.paths
+from utils.paths import cast_to_Path
+import utils.logging
+from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer
+import logging
+from tqdm import tqdm
+import files.paths
+from utils.distributed import DistributedUtils
 
 #Neccesary pool extention - PyBDSF uses daemon processes but only sometimes, and we want to batch the files themselves
 #Courtesy of https://stackoverflow.com/questions/52948447/error-group-argument-must-be-none-for-now-in-multiprocessing-pool
@@ -103,7 +103,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         process_rms_map = True,
         process_thresh = "hard",
         process_frequency = 144e6
-    );
+    )
 
     def __init__( self, 
                   subdir: str | PurePath, 
@@ -116,61 +116,61 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                   log_level: int = logging.INFO,
                   **kwargs: dict ):
         #Ensure all types are paths
-        self.log_dir = cast_to_Path( log_dir );
-        self.catalog_dir = cast_to_Path( catalog_dir );
-        self.img_dir = cast_to_Path( img_dir );
-        self.fits_input_dir = cast_to_Path( fits_input_dir );
-        self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir );
-        self.write_catalog = write_catalog;
-        export_images = export_images or [];
-        self.export_images = export_images;
+        self.log_dir = cast_to_Path( log_dir )
+        self.catalog_dir = cast_to_Path( catalog_dir )
+        self.img_dir = cast_to_Path( img_dir )
+        self.fits_input_dir = cast_to_Path( fits_input_dir )
+        self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir )
+        self.write_catalog = write_catalog
+        export_images = export_images or []
+        self.export_images = export_images
 
         #Image Analyzer is a recursive analyzer for fits_input_dir/subdir, with additional utilities for catalog_dir and img_dir
-        super().__init__( self.fits_input_dir / self.subdir, log_level );
+        super().__init__( self.fits_input_dir / self.subdir, log_level )
 
-        self.process_args = dict();
-        self.catalog_args = dict();
-        self.export_img_args = dict(); #elements will be (str, img args dict)
+        self.process_args = dict()
+        self.catalog_args = dict()
+        self.export_img_args = dict() #elements will be (str, img args dict)
         for img_type in export_images:
-            self.export_img_args[ img_type ] = dict( img_type=img_type );
+            self.export_img_args[ img_type ] = dict( img_type=img_type )
 
         #Loop through kwargs and sort arguments into catalog, export_img, or process
         for key, val in kwargs.items():
-            arg_used = False;
+            arg_used = False
             if key.find( 'catalog_' ) > -1:
                 if write_catalog:
-                    new_key = key[ len( 'catalog_' ): ];
+                    new_key = key[ len( 'catalog_' ): ]
 
                     #expand type to catalog_type and skip if new_key is already catalog_type
                     if new_key == 'type':
                         new_key = 'catalog_type'
                     elif new_key == 'catalog_type':
-                        self.logger.info( 'Skipping argument catalog_catalog_type: please refer to write_catalog in ImageAnalyzer docstring' );
-                        continue;
+                        self.logger.info( 'Skipping argument catalog_catalog_type: please refer to write_catalog in ImageAnalyzer docstring' )
+                        continue
 
-                    self.catalog_args[ new_key ] = val;
+                    self.catalog_args[ new_key ] = val
                 else:
-                    self.logger.warning( 'WARNING - argument %s passed with catalog prefix but write_catalog is false', key );
-                arg_used = True;
+                    self.logger.warning( 'WARNING - argument %s passed with catalog prefix but write_catalog is false', key )
+                arg_used = True
             for img_type in export_images:
                 if key.find( f'{img_type}_' ) > -1:
-                    self.export_img_args[ img_type ][ key[ len( f'{img_type}_' ): ] ] = val;
-                    arg_used = True;
+                    self.export_img_args[ img_type ][ key[ len( f'{img_type}_' ): ] ] = val
+                    arg_used = True
             if key.find( 'process_' ) > -1:
-                self.process_args[ key[ len( 'process_' ): ] ] = val;
-                arg_used = True;
+                self.process_args[ key[ len( 'process_' ): ] ] = val
+                arg_used = True
             if not arg_used:
                 self.logger.warning( 'WARNING - argument %s passed but not used (are you passing all neccesary strings for export_images?)' )
 
         #Clobber by default if nothing passed
         if write_catalog:
-            self.catalog_args[ 'clobber' ] = self.catalog_args.get( 'clobber', True );
+            self.catalog_args[ 'clobber' ] = self.catalog_args.get( 'clobber', True )
         for img_type in export_images:
-            self.export_img_args[ img_type ][ 'clobber' ] = self.export_img_args[ img_type ].get( 'clobber', True );
+            self.export_img_args[ img_type ][ 'clobber' ] = self.export_img_args[ img_type ].get( 'clobber', True )
     
         #Set process arg defaults to project defaults if nothing passed
         for key, val in ImageAnalyzer.LOFAR_process_arg_defaults.items():
-            self.process_args[ key[ len( 'process_' ): ] ] = self.process_args.get( key[ len( 'process_' ): ], val );
+            self.process_args[ key[ len( 'process_' ): ] ] = self.process_args.get( key[ len( 'process_' ): ], val )
 
     # Override default pattern
     def for_each( self, function, pattern: str | None = r'.*?image(\d+)\.fits$', progress_bar_desc: str | None = None, numeric_range: tuple[int,int] | None = None, return_nums: bool = False, args: list | None = None, kwargs: dict | None = None ):
@@ -206,7 +206,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         list[ int ] (optional)
             if return_nums, also returns a list of integers for the values captured by the first capture group in pattern from the file path str
         """
-        return super().for_each( function, pattern, progress_bar_desc, numeric_range, return_nums, args, kwargs );
+        return super().for_each( function, pattern, progress_bar_desc, numeric_range, return_nums, args, kwargs )
     
     def get_postfix( self, path: Path ):
         """
@@ -230,8 +230,8 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         ValueError
             if self.subdir.parts[ -1 ] is not present in path.parts
         """
-        last_index_of_subdir = len( path.parts ) - 1 - path.parts[ ::-1 ].index( self.subdir.parts[ -1 ] );
-        return PurePath( *path.parts[ (last_index_of_subdir + 1 ): ] );
+        last_index_of_subdir = len( path.parts ) - 1 - path.parts[ ::-1 ].index( self.subdir.parts[ -1 ] )
+        return PurePath( *path.parts[ (last_index_of_subdir + 1 ): ] )
 
     def analyze_all_FITS_in_input( self ):
         """
@@ -242,24 +242,24 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
         are set, will only process the files designated to this task, with a bin defined by
         ( task_id / task_count * len( files ) ) to ( ( task_id + 1 ) / task_count * len( files ) )
         """
-        du = DistributedUtils();
+        du = DistributedUtils()
 
-        n_cpus = os.environ.get( "N_CPUS", 1 );
+        n_cpus = os.environ.get( "N_CPUS", 1 )
         if isinstance( n_cpus, str ):
-            n_cpus = int( n_cpus );
-        self.logger.info( "Using %i cpu" + ( "s" if n_cpus != 1 else "" ), n_cpus );
-        input_subdir = self.fits_input_dir / self.subdir;
+            n_cpus = int( n_cpus )
+        self.logger.info( "Using %i cpu" + ( "s" if n_cpus != 1 else "" ), n_cpus )
+        input_subdir = self.fits_input_dir / self.subdir
 
-        files = self.get_unwrapped_list( input_subdir, r'.*?\.fits$' );
+        files = self.get_unwrapped_list( input_subdir, r'.*?\.fits$' )
 
         #distribute across multiple tasks
-        n_files = len( files );
-        bin_start = du.get_bin_start( n_files );
-        bin_end = du.get_bin_end( n_files );
-        files = files[ bin_start:bin_end ];
+        n_files = len( files )
+        bin_start = du.get_bin_start( n_files )
+        bin_end = du.get_bin_end( n_files )
+        files = files[ bin_start:bin_end ]
 
-        p = NonDaemonPool( processes=n_cpus );
-        p.map( self.analyze_FITS_at_path, files );
+        p = NonDaemonPool( processes=n_cpus )
+        p.map( self.analyze_FITS_at_path, files )
         
         
     
@@ -273,36 +273,36 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             the path to the file to analyze
         """
         if not isinstance( path, Path ):
-            path = Path( path );
+            path = Path( path )
 
         if path.is_dir():
-            self.logger.error( 'ERROR - Cannot analyze %s as fits file, is directory', str( path ) );
+            self.logger.error( 'ERROR - Cannot analyze %s as fits file, is directory', str( path ) )
         else:
             if path.suffix == ".fits":
                 # First see if we have any work to do
                 # Use a flag file instead of actual output because sometimes PyBDSF doesn't write output,
                 # e.g. when running analysis on data from LOFAR_dataset.h5 for items with extreme clipping
                 # like image10.fits
-                postfix = self.get_postfix( path );
-                flag_postfix = PurePath( *( postfix.parts[ :-1 ] + ( postfix.parts[ -1 ] + '.flag', ) ) );
+                postfix = self.get_postfix( path )
+                flag_postfix = PurePath( *( postfix.parts[ :-1 ] + ( postfix.parts[ -1 ] + '.flag', ) ) )
 
-                log_file = self.log_dir / self.subdir / postfix;
+                log_file = self.log_dir / self.subdir / postfix
 
-                write_catalog = self.write_catalog;
+                write_catalog = self.write_catalog
                 if write_catalog:
-                    catalog_outfile_flag = self.catalog_dir / self.subdir / flag_postfix;
+                    catalog_outfile_flag = self.catalog_dir / self.subdir / flag_postfix
                     if catalog_outfile_flag.exists():
-                        write_catalog = False;
-                export_images: list[ str ] = [];
+                        write_catalog = False
+                export_images: list[ str ] = []
                 for img_type in self.export_images:
-                    image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix;
+                    image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix
                     if not image_outfile_flag.exists():
-                        export_images.append( img_type );
+                        export_images.append( img_type )
                 
                 if ( not write_catalog ) and ( len( export_images ) == 0 ) and ( not log_file.exists() ):
-                    self.logger.info( f"Skipping {path}, no work to do" );
-                    return; #nothing to do
-                self.logger.info( f"Processing {path}:" );
+                    self.logger.info( f"Skipping {path}, no work to do" )
+                    return #nothing to do
+                self.logger.info( f"Processing {path}:" )
 
                 #Something to do, process the image
                 try:
@@ -310,24 +310,24 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                         str( path ),
                         outdir=(self.log_dir / self.subdir / postfix.parent),
                         **self.process_args
-                    );
+                    )
                 except ValueError:
-                    self.logger.error( f'Image {str( path )} failed to process' );
-                    return;
+                    self.logger.error( f'Image {str( path )} failed to process' )
+                    return
                 for img_type in export_images:
-                    image_outfile = self.img_dir / self.subdir / img_type / postfix;
-                    image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix;
-                    image_outfile.parent.mkdir( parents=True, exist_ok=True );
-                    img.export_image( outfile=str( image_outfile ), **self.export_img_args[ img_type ] );
-                    image_outfile_flag.touch();
+                    image_outfile = self.img_dir / self.subdir / img_type / postfix
+                    image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix
+                    image_outfile.parent.mkdir( parents=True, exist_ok=True )
+                    img.export_image( outfile=str( image_outfile ), **self.export_img_args[ img_type ] )
+                    image_outfile_flag.touch()
                 if write_catalog:
-                    catalog_outfile = self.catalog_dir / self.subdir / postfix;
-                    catalog_outfile_flag = self.catalog_dir / self.subdir / flag_postfix;
-                    catalog_outfile.parent.mkdir( parents=True, exist_ok=True );
-                    img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args );
-                    catalog_outfile_flag.touch();
+                    catalog_outfile = self.catalog_dir / self.subdir / postfix
+                    catalog_outfile_flag = self.catalog_dir / self.subdir / flag_postfix
+                    catalog_outfile.parent.mkdir( parents=True, exist_ok=True )
+                    img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args )
+                    catalog_outfile_flag.touch()
             else:
-                self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) );
+                self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) )
     
     def save_image_to_FITS( self, image: np.ndarray, postfix: PurePath, fscaled: float, overwrite: bool = True ):
         """
@@ -349,22 +349,22 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             Whether or not to overwrite the file if it already exists
         """
         # First, add some random noise to the image so pybdsf doesn't fail
-        z = np.random.normal( 0, scale=min( image.max(), 1 ) * 1e-2, size=image.shape );
-        image += z;
+        z = np.random.normal( 0, scale=min( image.max(), 1 ) * 1e-2, size=image.shape )
+        image += z
 
 
-        hdu = fits.PrimaryHDU( image );
-        hdu.header[ "CTYPE1" ] = "RA---SIN";
-        hdu.header[ "CTYPE2" ] = "DEC--SIN";
-        hdu.header[ "CDELT1" ] = 1.5 * 0.00027778;
-        hdu.header[ "CDELT2" ] = 1.5 * 0.00027778;
-        hdu.header[ "CUNIT1" ] = "deg";
-        hdu.header[ "CUNIT2" ] = "deg";
-        hdu.header[ "FXSCLD" ] = fscaled;
-        hdul = fits.HDUList( [ hdu ] );
-        outfile = self.fits_input_dir / self.subdir / postfix;
-        outfile.parent.mkdir( parents=True, exist_ok=True );
-        hdul.writeto( str( outfile ), overwrite=overwrite );
+        hdu = fits.PrimaryHDU( image )
+        hdu.header[ "CTYPE1" ] = "RA---SIN"
+        hdu.header[ "CTYPE2" ] = "DEC--SIN"
+        hdu.header[ "CDELT1" ] = 1.5 * 0.00027778
+        hdu.header[ "CDELT2" ] = 1.5 * 0.00027778
+        hdu.header[ "CUNIT1" ] = "deg"
+        hdu.header[ "CUNIT2" ] = "deg"
+        hdu.header[ "FXSCLD" ] = fscaled
+        hdul = fits.HDUList( [ hdu ] )
+        outfile = self.fits_input_dir / self.subdir / postfix
+        outfile.parent.mkdir( parents=True, exist_ok=True )
+        hdul.writeto( str( outfile ), overwrite=overwrite )
 
     def AnalyzeImage( self, image: np.ndarray, postfix: str ):
         """
@@ -381,5 +381,5 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             postfix for the fits file. Can either be the name of the fits file (e.g. "example.fits") or the name
             and location under "[fits_input_dir]/[subdir]/" to store it in (e.g. "example_bin/example.fits")
         """
-        self.save_image_to_FITS( image, postfix );
-        self.analyze_FITS_at_path( self.fits_input_dir / self.subdir / postfix );
+        self.save_image_to_FITS( image, postfix )
+        self.analyze_FITS_at_path( self.fits_input_dir / self.subdir / postfix )

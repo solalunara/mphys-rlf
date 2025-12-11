@@ -25,7 +25,7 @@ def background(f):
 class HardcastleCatalogueDownloader:
     """
     This is a class to handle downloading cutouts from the LOFAR cutout server based on the Hardcastle catalogue. This is
-    not a standalone step; the ~300k output files have not undergone pre-processing and further work is needed (see
+    not a standalone step the ~300k output files have not undergone pre-processing and further work is needed (see
     database_creation.py) to match them to the pre-processed LOFAR dataset.
     """
 
@@ -58,7 +58,7 @@ class HardcastleCatalogueDownloader:
     def load_hardcastle_catalogue(self, file_path="hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits"):
         """
         Loads the Hardcastle catalogue from a FITS file and filters for resolved items. This turns the ~4.1mil items from the
-        LoTSS-DR2 release w/ optical sources to 314,769 values. Note that this does not get pixel values; that is what this
+        LoTSS-DR2 release w/ optical sources to 314,769 values. Note that this does not get pixel values that is what this
         whole script is for.
 
         :param file_path: The path to the Hardcastle catalogue FITS file.
@@ -163,12 +163,12 @@ class HardcastleCatalogueDownloader:
 if __name__ == "__main__":
     # Prepare for distributed processing on galahad
     # Get a list of positions from the Hardcastle catalogue
-    # Running into a possible problem where galahad nodes don't want to read the same file; will force a single node
+    # Running into a possible problem where galahad nodes don't want to read the same file will force a single node
     # to perform this, and then copy the results to all nodes.
 
     # file_path = Path("hardcastle_catalogue/combined-release-v1.2-LM_opt_mass.fits")
     # du.copy_file_for_multiple_nodes(file_path)
-    # du.single_task_only_forcewait('load_optical_catalogue', load_optical_catalogue, 0)
+    # du.single_task_only_first('load_optical_catalogue', load_optical_catalogue, 0)
     downloader = HardcastleCatalogueDownloader()
     downloader.download_all_cutouts()
 

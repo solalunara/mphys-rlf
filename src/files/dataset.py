@@ -21,7 +21,7 @@ def download_dataset():
 
 def single_node_download_dataset():
     du = DistributedUtils()
-    du.single_task_only_forcewait('download_dataset', download_dataset, 0)
+    du.single_task_only_first('download_dataset', download_dataset, 0)
 
 if __name__ == '__main__':
     single_node_download_dataset()

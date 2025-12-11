@@ -61,7 +61,7 @@ class DatabaseCreator:
                     self.logger.error(f"Error loading Hardcastle catalogue item {idx}: {e}")
                     catalogue_data.append({'index': idx, 'clipped_values': np.nan})
 
-        # This is now done implicitly; storing too much data in memory was crashing personal laptop so this is better
+        # This is now done implicitly storing too much data in memory was crashing personal laptop so this is better
 
         # # 0-clip to match the LOFAR dataset's preprocessing
         # self.logger.info("0-clipping the Hardcastle pixel values...")
@@ -118,7 +118,7 @@ class DatabaseCreator:
                 mid = (left + right) // 2  # get the middle position in the current search range
                 mid_value = hdc_sums[mid][0] # get the Hardcastle sum at that position
 
-                # Update the closest match; this is here in case no match is found, we still have the closest one
+                # Update the closest match this is here in case no match is found, we still have the closest one
                 if abs(mid_value - lof_sum) < closest_match_diff:
                     closest_match_diff = abs(mid_value - lof_sum)
                     closest_match_idx = mid # note this is the sorted index and does not correspond to the original Hardcastle index
@@ -232,13 +232,13 @@ class DatabaseCreator:
 
         # NOTE - I GET MEMORY ERROR WHEN RUNNING THIS. MAY WORK ON GALAHAD AS MORE AVAILABLE MEMORY, BUT CAN'T SAVE
         # SUCH LARGE NUMPY FILES
-        # # Check to see if a .npy file for the sorted Hardcastle data exists; if so, load it to save time
+        # # Check to see if a .npy file for the sorted Hardcastle data exists if so, load it to save time
         # if os.path.exists('hardcastle_catalogue/sorted_hardcastle_sums.npy') and os.path.exists('hardcastle_catalogue/hardcastle_clipped_images.npy'):
         #     self.logger.info("Loading Hardcastle images & sorted sums from .npy file...")
         #     hdc_catalogue = np.load('hardcastle_catalogue/hardcastle_clipped_images.npy')
         #     hdc_sums = np.load('hardcastle_catalogue/sorted_hardcastle_sums.npy')
         # else:
-        #     self.logger.info("Missing .npy files for Hardcastle data; loading from FITS file...")
+        #     self.logger.info("Missing .npy files for Hardcastle data loading from FITS file...")
         #     header_info, hdc_catalogue = self.load_hardcastle_catalogue()
         #     hdc_sums = self.sort_hardcastle_data(hdc_catalogue)
         #

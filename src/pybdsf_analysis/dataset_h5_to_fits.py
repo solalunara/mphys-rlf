@@ -5,23 +5,23 @@
 # This file also provides a main function which forces a flush of the fits images directory and remakes it according
 # to the command line arguments, or utils.parameters if none are passed
 
-import sys;
-from astropy.io import fits;
-from astropy.io.fits import ImageHDU;
-import numpy as np;
-import matplotlib.pyplot as plt;
-import h5py;
-import math;
-from pathlib import Path, PurePath;
-import shutil;
-import utils.parameters;
-import utils.paths;
-from tqdm import tqdm;
-import files.dataset;
-from files.dataset import LOFAR_DATA_PATH;
-from utils.distributed import DistributedUtils;
-from sklearn.preprocessing import PowerTransformer;
-from pybdsf_analysis.image_analyzer import ImageAnalyzer;
+import sys
+from astropy.io import fits
+from astropy.io.fits import ImageHDU
+import numpy as np
+import matplotlib.pyplot as plt
+import h5py
+import math
+from pathlib import Path, PurePath
+import shutil
+import utils.parameters
+import utils.paths
+from tqdm import tqdm
+import files.dataset
+from files.dataset import LOFAR_DATA_PATH
+from utils.distributed import DistributedUtils
+from sklearn.preprocessing import PowerTransformer
+from pybdsf_analysis.image_analyzer import ImageAnalyzer
 
 def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
     """
@@ -50,66 +50,66 @@ def convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff
         As can be seen with 9150, bins are funneled such that the upper bound of an inner bin is always less than or equal to the upper bound of all
         its outer bins, and the opposite with the lower bound of an inner bin.
     """
-    files.dataset.download_dataset();
+    files.dataset.download_dataset()
 
-    dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR );
+    dataset_analyzer = ImageAnalyzer( utils.paths.DATASET_SUBDIR )
 
     if bin_sizes is None:
-        bin_sizes = utils.parameters.BINS_ARRAY;
+        bin_sizes = utils.parameters.BINS_ARRAY
 
-    bin_sizes = sorted( bin_sizes, reverse=True );
+    bin_sizes = sorted( bin_sizes, reverse=True )
     with h5py.File( str( lofar_data_h5 ), 'r' ) as h5:
-        images = h5[ 'images' ];
+        images = h5[ 'images' ]
     
-        images_len = images.shape[ 0 ];
-        num_to_convert = min( cutoff, images_len ) if cutoff is not None else images_len;
+        images_len = images.shape[ 0 ]
+        num_to_convert = min( cutoff, images_len ) if cutoff is not None else images_len
 
         # Set up the power transformer so we can scale the max fluxes
-        max_vals = np.max( images[:], axis=(1, 2) );
-        pt = PowerTransformer( method="box-cox" );
-        pt.fit( max_vals.reshape(-1, 1) );
+        max_vals = np.max( images[:], axis=(1, 2) )
+        pt = PowerTransformer( method="box-cox" )
+        pt.fit( max_vals.reshape(-1, 1) )
 
         for i in tqdm( range( num_to_convert ) ):
-            image = images[ i ];
+            image = images[ i ]
 
             # the images in the dataset *are* selected by the process in the paper but *are not* scaled 0-1
             # here we do that scaling
-            im_max = np.max( image );
-            im_min = np.min( image );
+            im_max = np.max( image )
+            im_min = np.min( image )
             if im_min < 0:
-                raise ValueError( "Images not preprocessed to remove negative values" );
-            image = ( image - im_min ) / ( im_max - im_min );
+                raise ValueError( "Images not preprocessed to remove negative values" )
+            image = ( image - im_min ) / ( im_max - im_min )
             
-            flux_scaled = pt.transform( np.array( [ im_max ] ).reshape(-1, 1) )[ 0, 0 ];
+            flux_scaled = pt.transform( np.array( [ im_max ] ).reshape(-1, 1) )[ 0, 0 ]
 
             #Create bins based on bin_sizes
             #make sure that there are no overextending bounds (e.g. 0-9999/9000-11999)
-            postfix = PurePath();
-            lowest_upper_bound =  1e30;
-            highest_lower_bound =-1e30;
+            postfix = PurePath()
+            lowest_upper_bound =  1e30
+            highest_lower_bound =-1e30
             for bin_size in bin_sizes:
-                lower_bound = int( math.floor( i / bin_size ) * bin_size );
-                upper_bound = int( math.ceil( ( i + 1 ) / bin_size ) * bin_size ) - 1;
+                lower_bound = int( math.floor( i / bin_size ) * bin_size )
+                upper_bound = int( math.ceil( ( i + 1 ) / bin_size ) * bin_size ) - 1
 
                 if lower_bound < highest_lower_bound:
-                    lower_bound = highest_lower_bound; #cut this lower bound to the highest before it
+                    lower_bound = highest_lower_bound #cut this lower bound to the highest before it
                 else:
-                    highest_lower_bound = lower_bound; #new highest lower bound
+                    highest_lower_bound = lower_bound #new highest lower bound
 
                 if upper_bound > lowest_upper_bound:
-                    upper_bound = lowest_upper_bound;  #cut this upper bound to the lowest before it
+                    upper_bound = lowest_upper_bound  #cut this upper bound to the lowest before it
                 else:
-                    lowest_upper_bound = upper_bound;  #new lowest upper bound
+                    lowest_upper_bound = upper_bound  #new lowest upper bound
 
-                postfix = postfix / f"{lower_bound}-{upper_bound}";
+                postfix = postfix / f"{lower_bound}-{upper_bound}"
 
-            postfix = postfix / f"image{i}.fits";
+            postfix = postfix / f"image{i}.fits"
 
-            dataset_analyzer.save_image_to_FITS( image, postfix, flux_scaled );
+            dataset_analyzer.save_image_to_FITS( image, postfix, flux_scaled )
 
 def single_node_convert_LOFAR_h5_to_fits( lofar_data_h5: Path, fits_output_dir: Path, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[int] | None = None ):
-    du = DistributedUtils();
-    du.single_task_only_forcewait( 'convert_LOFAR_h5_to_fits', convert_LOFAR_h5_to_fits, 0, lofar_data_h5, fits_output_dir, cutoff, bin_sizes );
+    du = DistributedUtils()
+    du.single_task_only_first( 'convert_LOFAR_h5_to_fits', convert_LOFAR_h5_to_fits, 0, lofar_data_h5, fits_output_dir, cutoff, bin_sizes )
 
 def validate_LOFAR_fits_images( clean_directory: bool, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
     """
@@ -137,26 +137,26 @@ def validate_LOFAR_fits_images( clean_directory: bool, cutoff: int | None = util
         As can be seen with 9150, bins are funneled such that the upper bound of an inner bin is always less than or equal to the upper bound of all
         its outer bins, and the opposite with the lower bound of an inner bin.
     """
-    fits_dataset_folder = utils.paths.FITS_PARENT / utils.paths.DATASET_SUBDIR;
+    fits_dataset_folder = utils.paths.FITS_PARENT / utils.paths.DATASET_SUBDIR
     if fits_dataset_folder.exists():
         if clean_directory:
-            shutil.rmtree( fits_dataset_folder );
+            shutil.rmtree( fits_dataset_folder )
         else:
-            return;
+            return
 
-    convert_LOFAR_h5_to_fits( LOFAR_DATA_PATH, fits_dataset_folder, cutoff, bin_sizes );
+    convert_LOFAR_h5_to_fits( LOFAR_DATA_PATH, fits_dataset_folder, cutoff, bin_sizes )
 
 def single_node_validate_LOFAR_fits_images( clean_directory: bool, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
-    du = DistributedUtils();
-    du.single_task_only_forcewait( 'validate_LOFAR_fits_images', validate_LOFAR_fits_images, 0, clean_directory, cutoff, bin_sizes );
+    du = DistributedUtils()
+    du.single_task_only_forcewait( 'validate_LOFAR_fits_images', validate_LOFAR_fits_images, 0, clean_directory, cutoff, bin_sizes )
 
 
 
 if __name__ == "__main__":
     # If this file is run directly, do a cleanup of the fits dataset dir and remake it according to args
-    bin_sizes = [];
+    bin_sizes = []
     for arg in sys.argv[ 1: ]:
-        bin_sizes.append( int( arg ) );
+        bin_sizes.append( int( arg ) )
     if len( bin_sizes ) == 0:
-        bin_sizes = utils.parameters.BINS_ARRAY;
-    single_node_validate_LOFAR_fits_images( True, bin_sizes=bin_sizes );
+        bin_sizes = utils.parameters.BINS_ARRAY
+    single_node_validate_LOFAR_fits_images( True, bin_sizes=bin_sizes )

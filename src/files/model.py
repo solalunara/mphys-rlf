@@ -29,8 +29,8 @@ def validate_model_in_sampling_dir():
 
 def single_node_validate_model_in_sampling_dir():
     du = DistributedUtils()
-    du.single_task_only_forcewait('validate_model_in_sampling_dir', validate_model_in_sampling_dir, 0)
+    du.single_task_only_first('validate_model_in_sampling_dir', validate_model_in_sampling_dir, 0)
 
 
 if __name__ == '__main__':
-    single_node_validate_model_in_sampling_dir();
+    single_node_validate_model_in_sampling_dir()

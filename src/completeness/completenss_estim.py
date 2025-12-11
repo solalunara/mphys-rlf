@@ -1,28 +1,28 @@
-from astropy.io import fits;
-import numpy as np;
-import pybdsf_analysis.pybdsf_run_analysis;
-import scipy.stats;
-from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
-import utils.paths;
-from utils.distributed import DistributedUtils;
-import random;
-from pybdsf_analysis.log_analyzer import LogAnalyzer;
-import pybdsf_analysis.log_analyzer as la;
-import pybdsf_analysis.recursive_file_analyzer as rfa;
-from tqdm import tqdm;
-import astropy.stats;
-import pandas as pd;
-import matplotlib.pyplot as plt;
-from pathlib import Path;
-from pybdsf_analysis.image_analyzer import ImageAnalyzer;
-import h5py;
-from files.dataset import LOFAR_DATA_PATH;
-from sklearn.preprocessing import PowerTransformer;
-from completeness.img_data_arrays import ImageDataArrays;
+from astropy.io import fits
+import numpy as np
+import pybdsf_analysis.pybdsf_run_analysis
+import scipy.stats
+from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer
+import utils.paths
+from utils.distributed import DistributedUtils
+import random
+from pybdsf_analysis.log_analyzer import LogAnalyzer
+import pybdsf_analysis.log_analyzer as la
+import pybdsf_analysis.recursive_file_analyzer as rfa
+from tqdm import tqdm
+import astropy.stats
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+from pybdsf_analysis.image_analyzer import ImageAnalyzer
+import h5py
+from files.dataset import LOFAR_DATA_PATH
+from sklearn.preprocessing import PowerTransformer
+from completeness.img_data_arrays import ImageDataArrays
 
-rms_LOFAR = 71e-6 * 1e3;
-beam_width_LOFAR = ImageAnalyzer.LOFAR_process_arg_defaults[ 'process_beam' ][ :-1 ];
-beam_area_LOFAR = beam_width_LOFAR[ 0 ] * beam_width_LOFAR[ 1 ];
+rms_LOFAR = 71e-6 * 1e3
+beam_width_LOFAR = ImageAnalyzer.LOFAR_process_arg_defaults[ 'process_beam' ][ :-1 ]
+beam_area_LOFAR = beam_width_LOFAR[ 0 ] * beam_width_LOFAR[ 1 ]
 
 def get_noise(data):
     """
@@ -63,36 +63,36 @@ def create_noise_LOFAR(shape=(80,80), rms=rms_LOFAR):
 
 def get_completeness_estim():
     plt.figure(figsize = (8, 5))
-    N_NOISE_PATCHES = 5;
+    N_NOISE_PATCHES = 5
     for subdir in [ utils.paths.GENERATED_SUBDIR ]:
-        images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays();
+        images, resid_images, model_images, model_fluxes, peak_fluxes, sigma_clipped_means, sigma_clipped_rmsds = ImageDataArrays( subdir ).get_all_arrays()
 
-        mock_fluxes = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=float );
-        detectable = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=bool );
+        mock_fluxes = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=float )
+        detectable = np.empty( (images.shape[ 0 ]*N_NOISE_PATCHES), dtype=bool )
 
 
         for i in tqdm( range( images.shape[ 0 ] ), desc='Calculating mock images' ):
-            #rms = image_rmss_actual[ random_image ];
-            #noise_patch = resid_images[ random_image ];
+            #rms = image_rmss_actual[ random_image ]
+            #noise_patch = resid_images[ random_image ]
 
             # Using rms=image_rmss_actual[ random_image ] is technically correct yet utterly useless
             # because the majority of the noise is from the artificial 1% noise added for pybdsf
             # TODO: Use raw LOFAR data so we can get rms locally based on strength of source, potential code commented above
-            rms = rms_LOFAR;
-            mock_fluxes[ i:(i+N_NOISE_PATCHES) ] = model_fluxes[ i ][ np.newaxis ];
-            noise_patches = create_noise_LOFAR( shape=(N_NOISE_PATCHES,80,80), rms=rms );
-            sim_data = noise_patches + images[ i ][ np.newaxis, :, : ];
+            rms = rms_LOFAR
+            mock_fluxes[ i:(i+N_NOISE_PATCHES) ] = model_fluxes[ i ][ np.newaxis ]
+            noise_patches = create_noise_LOFAR( shape=(N_NOISE_PATCHES,80,80), rms=rms )
+            sim_data = noise_patches + images[ i ][ np.newaxis, :, : ]
 
-            peak_fluxes = np.max( sim_data, axis=(1,2) );
-            threshold = 5 * rms;
-            detectable[ i:(i+N_NOISE_PATCHES) ] = peak_fluxes >= threshold;
+            peak_fluxes = np.max( sim_data, axis=(1,2) )
+            threshold = 5 * rms
+            detectable[ i:(i+N_NOISE_PATCHES) ] = peak_fluxes >= threshold
 
 
         test_mock = pd.DataFrame()
         #test_mock['mock_flux'] = mock_fluxes.ravel()
         #test_mock['detectable'] = detectable.ravel()
-        test_mock['mock_flux'] = mock_fluxes;
-        test_mock['detectable'] = detectable;
+        test_mock['mock_flux'] = mock_fluxes
+        test_mock['detectable'] = detectable
 
         # Define flux bins
         flux_bins = np.logspace( -2, 2, num=25 )
@@ -117,17 +117,17 @@ def get_completeness_estim():
             total_counts.append(np.sum(in_bin))
 
         # Handle confidence interval with poisson_conf_interval for total_counts = 0
-        total_counts = np.array( total_counts );
-        zero_counts = total_counts == 0;
-        total_counts = np.where( zero_counts, 1e-10, total_counts );
-        conf_interval = astropy.stats.poisson_conf_interval( np.array( completeness ) * total_counts, interval='frequentist-confidence', sigma=1.0 );
-        conf_interval /= total_counts;
-        conf_interval[ :, zero_counts ] = 0;
-        yerr = conf_interval[ 1 ] - conf_interval[ 0 ];
+        total_counts = np.array( total_counts )
+        zero_counts = total_counts == 0
+        total_counts = np.where( zero_counts, 1e-10, total_counts )
+        conf_interval = astropy.stats.poisson_conf_interval( np.array( completeness ) * total_counts, interval='frequentist-confidence', sigma=1.0 )
+        conf_interval /= total_counts
+        conf_interval[ :, zero_counts ] = 0
+        yerr = conf_interval[ 1 ] - conf_interval[ 0 ]
 
         # Plot completeness curve
 
-        plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' );
+        plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
         plt.plot(bin_centers, completeness, marker='.', label = f'{subdir} completeness', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
@@ -139,12 +139,12 @@ def get_completeness_estim():
         plt.grid(True)
         plt.legend()
     plt.show()
-    plt.savefig( 'cplestim.png' );
+    plt.savefig( 'cplestim.png' )
 
 
 if __name__ == "__main__":
-    pybdsf_analysis.pybdsf_run_analysis.analyze_everything();
+    pybdsf_analysis.pybdsf_run_analysis.analyze_everything()
 
-    du = DistributedUtils();
-    du.last_task_only( 'get_completeness_estim', get_completeness_estim );
+    du = DistributedUtils()
+    du.single_task_only_last( 'get_completeness_estim', get_completeness_estim, 0 )
 

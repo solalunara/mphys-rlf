@@ -104,9 +104,6 @@ class ImageDataArrays:
             residual_images, = residual_values
             model_images, = model_values;
 
-            # Adjust raw (normalized) model fluxes from pybdsf so we have a small flux instead of 0 for log scaling
-            normalized_model_fluxes = np.where( normalized_model_fluxes > 0, normalized_model_fluxes, 1e-10 );
-        
             # Get the unscaled fluxes and unscale everything accordingly
             pt = PeakFluxPowerTransformer();
             peak_fluxes_mjy = pt.inverse_transform( peak_fluxes_transformed ) * 1000;

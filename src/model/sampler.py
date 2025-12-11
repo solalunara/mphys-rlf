@@ -405,7 +405,7 @@ class Sampler:
                 max_vals = np.max(f["images"][:], axis=(1, 2))
 
         if isinstance( max_vals, Path ):
-            max_vals = np.load( max_vals );
+            max_vals = np.load( max_vals )
 
         pt = PowerTransformer(method="box-cox")
         pt.fit(max_vals.reshape(-1, 1))

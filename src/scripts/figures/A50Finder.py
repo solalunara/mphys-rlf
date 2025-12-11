@@ -13,7 +13,7 @@ import plotting.image_plots
 
 class A50Finder:
     """
-    A class to manually find the quantity A50, which is an area containing 50% of the total flux intensity of the source. It does this through two functions; create_A50_list, which creates and returns the list containing the data of all pixels in the A50, and plot_A50_contour, which plots the contour of the A50 region on top of the image.
+    A class to manually find the quantity A50, which is an area containing 50% of the total flux intensity of the source. It does this through two functions create_A50_list, which creates and returns the list containing the data of all pixels in the A50, and plot_A50_contour, which plots the contour of the A50 region on top of the image.
     """
 
     def __init__(self):

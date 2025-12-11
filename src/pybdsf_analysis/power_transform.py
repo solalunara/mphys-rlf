@@ -1,12 +1,12 @@
-from utils.logging import get_logger;
-from files.dataset import LOFAR_DATA_PATH, single_node_download_dataset;
-from utils.distributed import DistributedUtils;
-import utils.paths as pth;
-import h5py;
-import numpy as np;
-from pathlib import Path;
-from sklearn.preprocessing import PowerTransformer;
-from files.paths import single_node_prepare_folders;
+from utils.logging import get_logger
+from files.dataset import LOFAR_DATA_PATH, single_node_download_dataset, download_dataset
+from utils.distributed import DistributedUtils
+import utils.paths as pth
+import h5py
+import numpy as np
+from pathlib import Path
+from sklearn.preprocessing import PowerTransformer
+from files.paths import single_node_prepare_folders, make_folders_and_copy_config
 
 def write_maxvals_of_h5_to_file( outfile: Path, infile: Path ):
     """
@@ -22,8 +22,8 @@ def write_maxvals_of_h5_to_file( outfile: Path, infile: Path ):
         The h5 file which contains images as file[ 'images' ][ : ].shape = (n_images, ndim, ndim)
     """
     with h5py.File( infile, "r" ) as f:
-        max_vals = np.max( f[ "images" ][ : ], axis=(1, 2) );
-    np.save( outfile, max_vals );
+        max_vals = np.max( f[ "images" ][ : ], axis=(1, 2) )
+    np.save( outfile, max_vals )
 
 class PeakFluxPowerTransformer:
     """
@@ -37,27 +37,32 @@ class PeakFluxPowerTransformer:
         #   1/ The dataset is downloaded
         #   2/ The max values of the dataset to be saved to a file using only one node while the rest wait,
         #   3/ Those max values are used to fit a box-cox transform
-        self.logger = get_logger( __name__ );
-        self.du = DistributedUtils();
+        self.logger = get_logger( __name__ )
+        self.du = DistributedUtils()
 
-        self.logger.debug( 'Making sure we have the dataset...' );
+        single_task = self.du.is_in_single_task_function()
+
+        self.logger.debug( 'Making sure we have the dataset...' )
         if not LOFAR_DATA_PATH.exists():
-            single_node_download_dataset();
+            single_node_download_dataset() if not single_task else download_dataset()
 
-        self.logger.debug( 'Making sure all folders exist...' );        
-        single_node_prepare_folders();
+        self.logger.debug( 'Making sure all folders exist...' )        
+        single_node_prepare_folders() if not single_task else make_folders_and_copy_config()
 
-        self.maxvals_path = pth.NP_ARRAY_PARENT / 'maxvals.npy';
-        self.logger.debug( 'Dataset downloaded. Saving dataset maxvals to %s...', self.maxvals_path );
+        self.maxvals_path = pth.NP_ARRAY_PARENT / 'maxvals.npy'
+        self.logger.debug( 'Dataset downloaded. Saving dataset maxvals to %s...', self.maxvals_path )
         if not self.maxvals_path.exists():
-            self.du.single_task_only_forcewait( 'write_maxvals_of_h5_to_file', write_maxvals_of_h5_to_file, 0, self.maxvals_path, LOFAR_DATA_PATH );
-        self.logger.debug( 'Done with shared file IO' );
+            if not single_task:
+                self.du.single_task_only_first( 'write_maxvals_of_h5_to_file', write_maxvals_of_h5_to_file, 0, self.maxvals_path, LOFAR_DATA_PATH )
+            else:
+                write_maxvals_of_h5_to_file( self.maxvals_path, LOFAR_DATA_PATH )
+        self.logger.debug( 'Done with shared file IO' )
 
-        self.pt = PowerTransformer( method="box-cox" );
-        self.pt.fit( np.load( self.maxvals_path ).reshape(-1, 1) );
+        self.pt = PowerTransformer( method="box-cox" )
+        self.pt.fit( np.load( self.maxvals_path ).reshape(-1, 1) )
 
     def transform( self, array: np.ndarray ):
-        return self.pt.transform( array.reshape( -1, 1 ) )[ :, 0 ];
+        return self.pt.transform( array.reshape( -1, 1 ) )[ :, 0 ]
 
     def inverse_transform( self, array: np.ndarray ):
-        return self.pt.inverse_transform( array.reshape( -1, 1 ) )[ :, 0 ];
+        return self.pt.inverse_transform( array.reshape( -1, 1 ) )[ :, 0 ]

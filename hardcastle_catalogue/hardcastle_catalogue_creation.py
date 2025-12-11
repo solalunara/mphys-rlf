@@ -86,7 +86,7 @@ class HardcastleCatalogueCreator:
         :param file_path: The path to the input FITS file.
         :param save_path: The path to save the FITS file.
         """
-        # This is a little confusing, so let me explain; I have two sources of information, the hardcastle release
+        # This is a little confusing, so let me explain I have two sources of information, the hardcastle release
         # which contains the header information, and the cutout files which contain the pixel values.
         # In the hardcastle release, the header is the name of the columns, and the data is the actual header info.
         self.logger.info(f"Saving Hardcastle catalogue to {save_path}")
@@ -111,12 +111,12 @@ class HardcastleCatalogueCreator:
             hdu = fits.ImageHDU(data=item['pixel_values'], name=f"CUTOUT_IMAGE{idx}")
 
             # Add WCS information to the header for pyBDSF
-            hdu.header["CTYPE1"] = "RA---SIN";
-            hdu.header["CTYPE2"] = "DEC--SIN";
-            hdu.header["CDELT1"] = 1.5 * 0.00027778;
-            hdu.header["CDELT2"] = 1.5 * 0.00027778;
-            hdu.header["CUNIT1"] = "deg";
-            hdu.header["CUNIT2"] = "deg";
+            hdu.header["CTYPE1"] = "RA---SIN"
+            hdu.header["CTYPE2"] = "DEC--SIN"
+            hdu.header["CDELT1"] = 1.5 * 0.00027778
+            hdu.header["CDELT2"] = 1.5 * 0.00027778
+            hdu.header["CUNIT1"] = "deg"
+            hdu.header["CUNIT2"] = "deg"
 
             # Add an index so the original header information can be restored from PrimaryHDU
             hdu.header["CATIDX"] = idx

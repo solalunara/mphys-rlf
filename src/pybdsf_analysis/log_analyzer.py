@@ -1,10 +1,10 @@
-from pathlib import Path, PurePath;
-import re;
-from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer;
-import logging;
-import utils.paths;
-import logging;
-import numpy as np;
+from pathlib import Path, PurePath
+import re
+from pybdsf_analysis.recursive_file_analyzer import RecursiveFileAnalyzer
+import logging
+import utils.paths
+import logging
+import numpy as np
 
 class LogAnalyzer( RecursiveFileAnalyzer ):
     """
@@ -19,8 +19,8 @@ class LogAnalyzer( RecursiveFileAnalyzer ):
     log_level : int = logging.INFO
     """
     def __init__( self, subdir: PurePath | str, log_file_dir: Path = utils.paths.PYBDSF_LOG_PARENT, log_level: int = logging.INFO ):
-        super().__init__( log_file_dir / subdir, log_level );
-        self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir );
+        super().__init__( log_file_dir / subdir, log_level )
+        self.subdir = subdir if isinstance( subdir, PurePath ) else PurePath( subdir )
 
     # Override default pattern
     def for_each( self, function, pattern: str | None = r'.*?image(\d+)\.fits\.pybdsf\.log$', progress_bar_desc: str | None = None, numeric_range: tuple[int,int] | None = None, return_nums: bool = False, args: list | None = None, kwargs: dict | None = None ):
@@ -56,7 +56,7 @@ class LogAnalyzer( RecursiveFileAnalyzer ):
         list[ int ] (optional)
             if return_nums, also returns a list of integers for the values captured by the first capture group in pattern from the file path str
         """
-        return super().for_each( function, pattern, progress_bar_desc, numeric_range, return_nums, args, kwargs );
+        return super().for_each( function, pattern, progress_bar_desc, numeric_range, return_nums, args, kwargs )
 
 def get_flux( path: Path ):
     """
@@ -73,12 +73,12 @@ def get_flux( path: Path ):
         The flux of the image in Jy or arbitrary units (because of 0-1 normalizaiton)
     """
     with open( str( path ) ) as file:
-        filedata = file.read();
-    exp = re.compile( r"Flux from sum of \(non-blank\) pixels ..... : (\d+\.\d+) Jy" );
-    match = exp.search( filedata );
-    if match is None: print( str( path ) );
-    flux = float( match.group( 1 ) );
-    return flux;
+        filedata = file.read()
+    exp = re.compile( r"Flux from sum of \(non-blank\) pixels ..... : (\d+\.\d+) Jy" )
+    match = exp.search( filedata )
+    if match is None: print( str( path ) )
+    flux = float( match.group( 1 ) )
+    return flux
 
 def get_model_flux( path: Path ):
     """
@@ -95,12 +95,12 @@ def get_model_flux( path: Path ):
         The flux of the model in Jy or arbitrary units (because of 0-1 normalizaiton)
     """
     with open( str( path ) ) as file:
-        filedata = file.read();
-    exp = re.compile( r"Total flux density in model ............. : (\d+\.\d+) Jy" );
-    match = exp.search( filedata );
-    if match is None: flux = 0; # Log won't have this line if no flux is found - so set model flux to 0
-    else: flux = float( match.group( 1 ) );
-    return flux;
+        filedata = file.read()
+    exp = re.compile( r"Total flux density in model ............. : (\d+\.\d+) Jy" )
+    match = exp.search( filedata )
+    if match is None: flux = 0 # Log won't have this line if no flux is found - so set model flux to 0
+    else: flux = float( match.group( 1 ) )
+    return flux
 
 def get_mean( path: Path ):
     """
@@ -117,11 +117,11 @@ def get_mean( path: Path ):
         The raw mean of the image in mJy or arbitrary units
     """
     with open( str( path ) ) as file:
-        filedata = file.read();
-    exp = re.compile( r"Raw mean \(Stokes I\) =  (\d+\.\d+) mJy" );
-    match = exp.search( filedata );
-    mean = float( match.group( 1 ) );
-    return mean;
+        filedata = file.read()
+    exp = re.compile( r"Raw mean \(Stokes I\) =  (\d+\.\d+) mJy" )
+    match = exp.search( filedata )
+    mean = float( match.group( 1 ) )
+    return mean
 
 def get_sigma_clipped_mean( path: Path ):
     """
@@ -138,12 +138,12 @@ def get_sigma_clipped_mean( path: Path ):
         The sigma clipped mean of the image in mJy or arbitrary units
     """
     with open( str( path ) ) as file:
-        filedata = file.read();
-    exp = re.compile( r"sigma clipped mean \(Stokes I\) =  -?(\d+\.\d+) mJy" );
-    match = exp.search( filedata );
-    if match is None: print( str( path ) );
-    mean = float( match.group( 1 ) );
-    return mean;
+        filedata = file.read()
+    exp = re.compile( r"sigma clipped mean \(Stokes I\) =  -?(\d+\.\d+) mJy" )
+    match = exp.search( filedata )
+    if match is None: print( str( path ) )
+    mean = float( match.group( 1 ) )
+    return mean
 
 def get_rms( path: Path ):
     """
@@ -160,12 +160,12 @@ def get_rms( path: Path ):
         The raw rms of the image in mJy or arbitrary units
     """
     with open( str( path ) ) as file:
-        filedata = file.read();
-    exp = re.compile( r"raw rms =  (\d+\.\d+) mJy" );
-    match = exp.search( filedata );
-    if match is None: print( str( path ) );
-    rms = float( match.group( 1 ) );
-    return rms;
+        filedata = file.read()
+    exp = re.compile( r"raw rms =  (\d+\.\d+) mJy" )
+    match = exp.search( filedata )
+    if match is None: print( str( path ) )
+    rms = float( match.group( 1 ) )
+    return rms
 
 def get_sigma_clipped_rms( path: Path ):
     """
@@ -182,12 +182,12 @@ def get_sigma_clipped_rms( path: Path ):
         The sigma clipped rms of the image in mJy or arbitrary units
     """
     with open( str( path ) ) as file:
-        filedata = file.read();
-    exp = re.compile( r"sigma clipped rms =  (\d+\.\d+) mJy" );
-    match = exp.search( filedata );
-    if match is None: print( str( path ) );
-    rms = float( match.group( 1 ) );
-    return rms;
+        filedata = file.read()
+    exp = re.compile( r"sigma clipped rms =  (\d+\.\d+) mJy" )
+    match = exp.search( filedata )
+    if match is None: print( str( path ) )
+    rms = float( match.group( 1 ) )
+    return rms
 
 def get_flux_mean_rms( path: Path ):
     """
@@ -208,12 +208,12 @@ def get_flux_mean_rms( path: Path ):
         The raw rms of the image in mJy or arbitrary units
     """
     with open( str( path ) ) as file:
-        filedata = file.read();
+        filedata = file.read()
     #include re.DOTALL to make the .*? able to expand over newlines
-    exp = re.compile( r"Raw mean \(Stokes I\) =  (\d+\.\d+) mJy and raw rms =  (\d+\.\d+) mJy.*?Flux from sum of \(non-blank\) pixels ..... : (\d+\.\d+) Jy", re.DOTALL );
-    match = exp.search( filedata );
-    if match is None: print( str( path ) );
-    mean = float( match.group( 1 ) );
-    rms = float( match.group( 2 ) );
-    flux = float( match.group( 3 ) );
-    return flux, mean, rms;
+    exp = re.compile( r"Raw mean \(Stokes I\) =  (\d+\.\d+) mJy and raw rms =  (\d+\.\d+) mJy.*?Flux from sum of \(non-blank\) pixels ..... : (\d+\.\d+) Jy", re.DOTALL )
+    match = exp.search( filedata )
+    if match is None: print( str( path ) )
+    mean = float( match.group( 1 ) )
+    rms = float( match.group( 2 ) )
+    flux = float( match.group( 3 ) )
+    return flux, mean, rms

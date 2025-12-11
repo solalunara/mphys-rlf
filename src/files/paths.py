@@ -1,6 +1,6 @@
-import utils.paths as pth;
-import shutil;
-from utils.distributed import DistributedUtils;
+import utils.paths as pth
+import shutil
+from utils.distributed import DistributedUtils
 
 def make_folders():
     # Create folders and symlinks
@@ -54,7 +54,7 @@ def make_folders_and_copy_config():
 
 def single_node_prepare_folders():
     du = DistributedUtils()
-    du.single_task_only_forcewait('make_folders_and_copy_config', make_folders_and_copy_config, 0)
+    du.single_task_only_first('make_folders_and_copy_config', make_folders_and_copy_config, 0)
 
 if __name__ == '__main__':
     single_node_prepare_folders()

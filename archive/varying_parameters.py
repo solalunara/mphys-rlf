@@ -19,7 +19,7 @@ for size in image_sizes:
     # Create the samples using in-built quick_sample
     samples = model_sampler.quick_sample(
         "LOFAR_model",
-        distribute_model=False,  # no access to multiple GPUs here; CPU functionality only
+        distribute_model=False,  # no access to multiple GPUs here CPU functionality only
         n_samples=1,
         image_size=size,
         return_steps=False

@@ -148,7 +148,7 @@ def validate_LOFAR_fits_images( clean_directory: bool, cutoff: int | None = util
 
 def single_node_validate_LOFAR_fits_images( clean_directory: bool, cutoff: int | None = utils.parameters.LOFAR_FITS_COUNT_CUTOFF, bin_sizes: list[ int ] | None = None ):
     du = DistributedUtils()
-    du.single_task_only_forcewait( 'validate_LOFAR_fits_images', validate_LOFAR_fits_images, 0, clean_directory, cutoff, bin_sizes )
+    du.single_task_only_first( 'validate_LOFAR_fits_images', validate_LOFAR_fits_images, 0, clean_directory, cutoff, bin_sizes )
 
 
 

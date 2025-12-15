@@ -286,7 +286,8 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 postfix = self.get_postfix( path )
                 flag_postfix = PurePath( *( postfix.parts[ :-1 ] + ( postfix.parts[ -1 ] + '.flag', ) ) )
 
-                log_file = self.log_dir / self.subdir / postfix
+                log_file = self.log_dir / self.subdir / f"{postfix}.pybdsf.log"
+                self.logger.info( f'Log file {log_file}' )
 
                 write_catalog = self.write_catalog
                 if write_catalog:
@@ -298,8 +299,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                     image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix
                     if not image_outfile_flag.exists():
                         export_images.append( img_type )
-                
-                if ( not write_catalog ) and ( len( export_images ) == 0 ) and ( not log_file.exists() ):
+                if ( not write_catalog ) and ( len( export_images ) == 0 ) and ( log_file.exists() ):
                     self.logger.info( f"Skipping {path}, no work to do" )
                     return #nothing to do
                 self.logger.info( f"Processing {path}:" )
@@ -314,6 +314,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 except ValueError:
                     self.logger.error( f'Image {str( path )} failed to process' )
                     return
+                img.show_fit()
                 for img_type in export_images:
                     image_outfile = self.img_dir / self.subdir / img_type / postfix
                     image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix

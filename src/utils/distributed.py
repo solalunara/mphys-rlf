@@ -179,25 +179,22 @@ class DistributedUtils:
         taskname = taskname.replace( '/', '_' ).replace( '-', '_' ).upper()
 
         if not self.is_distributed():
-            # Doing this separately from if we have multiple array elements allows us to ignore flag file
-            # deletion when this array id == do_on_array_id - hereafter we can assume if self.get_task_id() == do_on_array_id
-            # that it is the first array to attempt the problem
             function( *args, **kwargs )
         else:
             if self.get_task_id() != do_on_array_id:
                 ( FP / f'ARRAY_{self.get_task_id()}_TASK_{taskname}_PASS' ).touch()
             else:
                 # Truth value tells us whether or not wait_until timed out
-                def __other_arrays_passed_lambda( taskname ):
+                def __other_arrays_passed_lambda( taskname, task_count, task_id ):
                     other_arrays_passed = True
-                    for i in range( 0, self.get_task_count() ):
-                        if i == self.get_task_id():
+                    for i in range( 0, task_count ):
+                        if i == task_id:
                             continue
                         elif not ( FP / f'ARRAY_{i}_TASK_{taskname}_PASS' ).exists():
                             other_arrays_passed = False
                     return other_arrays_passed
 
-                if not wait_until( __other_arrays_passed_lambda, None, self.logger, do_on_array_id, taskname, 1, taskname ):
+                if not wait_until( __other_arrays_passed_lambda, None, self.logger, do_on_array_id, taskname, 1, taskname, self.get_task_count(), self.get_task_id() ):
                     raise RuntimeError( f'ERROR - wait_until timed out on array {self.get_task_id()} waiting for {taskname} on array {do_on_array_id}' )
 
                 function( *args, **kwargs )

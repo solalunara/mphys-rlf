@@ -25,41 +25,6 @@ class FitsViewer:
         self.__data_cache = None
         self.__sorting = -1
 
-    def read_from_files( self, *files: Path ):
-        """
-        Read fits file into data
-
-        Parameters
-        ----------
-        *files : list[Path]
-            The fits file to read the data of the PrimaryHDU from, of shape (n,n) or (1,1,n,n).
-            The number of pixels n does not have to be uniform across the images.
-        """
-        for file in files:
-
-            # If this file is a directory recursively call this func on all files in the directory to append to self.data
-            # because of this, we cannot preallocate the list
-            if file.is_dir():
-                self.read_from_files( *file.iterdir() )
-                return
-
-            with fits.open( str( file ) ) as hdul:
-                data = hdul[ 0 ].data
-                header = hdul[ 0 ].header
-
-            # FITS files from gaus_model in pybdsf are of shape (1,1,n,n), convert to (n,n)
-            if data.shape[ :2 ] == (1, 1):
-                data = data[ 0 ][ 0 ]
-
-            # If being called through init, we have preallocation for faster assignment, otherwise we need to append
-            if self.i < len( self.data ):
-                self.data[ self.i ] = data
-                self.headers[ self.i ] = header
-            else:
-                self.data.append( data )
-                self.headers.append( header )
-            self.i += 1
-
     NO_SORTING = 0
     SORT_BY_FLUX_SCALED = 1
     SORT_BY_FLUX = 2
@@ -188,7 +153,12 @@ if __name__ == "__main__":
     if len( args.FILES ) > 0:
         paths: list[ Path ] = []
         for element in args.FILES:
-            paths.extend( Path( element ).rglob( "*" ) )
+            element_path = Path( element )
+            if element_path.is_dir():
+                for sub_elements in element_path.rglob( "*" ):
+                    paths.append( sub_elements )
+            else:
+                paths.append( element_path )
 
         kwargs = vars( args )
         kwargs.pop( 'FILES' ) #Already interpreted, shouldn't be passed to show_image_grid

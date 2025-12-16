@@ -20,7 +20,6 @@ if __name__ == "__main__":
 
     plt.xscale( 'log' )
     plt.yscale( 'log' )
-    plt.xlabel( 'Peak Flux (mJy)' )
-    plt.ylabel( 'Model Flux (mJy)' )
-    plt.legend()
+    plt.xlabel( 'Peak Flux (mJy/pix)' )
+    plt.ylabel( 'Integrated Flux (mJy)' )
     plt.show()

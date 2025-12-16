@@ -287,7 +287,6 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 flag_postfix = PurePath( *( postfix.parts[ :-1 ] + ( postfix.parts[ -1 ] + '.flag', ) ) )
 
                 log_file = self.log_dir / self.subdir / f"{postfix}.pybdsf.log"
-                self.logger.info( f'Log file {log_file}' )
 
                 write_catalog = self.write_catalog
                 if write_catalog:
@@ -314,7 +313,6 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 except ValueError:
                     self.logger.error( f'Image {str( path )} failed to process' )
                     return
-                img.show_fit()
                 for img_type in export_images:
                     image_outfile = self.img_dir / self.subdir / img_type / postfix
                     image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix

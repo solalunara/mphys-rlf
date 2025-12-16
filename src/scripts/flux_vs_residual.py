@@ -28,13 +28,12 @@ def plot_flux_vs_residuals():
 
         plt.scatter( scaled_flux, delta, label=subdir, 
                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b',
-                    s=1 )
+                    s=0.01 )
 
-    plt.xlabel( 'Scaled Flux' )
-    plt.ylabel( 'Image Delta' )
+    plt.xlabel( 'Transformed Flux a.u.' )
+    plt.ylabel( 'Summed Positive Residuals mJy/image' )
     plt.yscale( 'log' )
-    plt.legend()
-    plt.title( 'Scaled flux vs summed residuals' )
+    plt.title( 'Transformed Flux vs Summed Positive Residuals' )
     plt.show()
     plt.savefig( 'scatter.png' )
     logger.info( 'Saved figure to scatter.png' )

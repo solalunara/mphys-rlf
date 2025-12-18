@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#SBATCH --job-name=ashley-luna-mphys-rlf
+#SBATCH --job-name=cplestim
 #SBATCH --constraint=A100
 #SBATCH --time=1-23
 #SBATCH --output=/share/nas2_3/lgreen/logs/out-slurm_%j.out
 #SBATCH --no-requeue
-#SBATCH --array=0-20
+#SBATCH --array=0-0
 #SBATCH --chdir=/share/nas2_3/lgreen/mphys-rlf
 #SBATCH --cpus-per-task=16
-#SBATCH --exclude=compute-0-9,compute-0-1
+#SBATCH --exclude=compute-0-9,compute-0-1,compute-0-2
 
 set -e
 
@@ -23,4 +23,3 @@ echo $SLURM_ARRAY_TASK_COUNT
 echo ">>>starting program"
 export N_CPUS=$SLURM_CPUS_PER_TASK
 python /share/nas2_3/lgreen/mphys-rlf/src/scripts/flux_vs_residual.py
-

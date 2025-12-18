@@ -57,6 +57,7 @@ def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
             else:
                 with h5py.File( LOFAR_DATA_PATH, 'r' ) as h5:
                     data = h5[ 'images' ][ : ]
+                    data = data / np.max( data, axis=(1,2) )
             np.save( data_path, data )
         means = np.mean( data, axis=(1,2) )
         rmsds = np.std( data, axis=(1,2) )

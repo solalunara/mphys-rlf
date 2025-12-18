@@ -56,7 +56,7 @@ def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
                 data = np.array( rf.for_each( rfa.get_fits_primaryhdu_data, progress_bar_desc=f'{subdir} data...' ) )
             else:
                 with h5py.File( LOFAR_DATA_PATH, 'r' ) as h5:
-                    data = h5[ 'images' ]
+                    data = h5[ 'images' ][ : ]
             np.save( data_path, data )
         means = np.mean( data, axis=(1,2) )
         rmsds = np.std( data, axis=(1,2) )

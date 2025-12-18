@@ -16,6 +16,13 @@ def plot_flux_vs_residuals():
     pt = PeakFluxPowerTransformer()
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
         data_arrays = ImageDataArrays( subdir )
+
+        #Select for peak flux >0.5 mJy
+        valid = data_arrays.peak_fluxes > 0.5
+        data_arrays.peak_fluxes = data_arrays.peak_fluxes[ valid ]
+        data_arrays.image_scale_factors = data_arrays.image_scale_factors[ valid ]
+        data_arrays.residual_images = data_arrays.residual_images[ valid, :, : ]
+
         transformed_peak_fluxes = pt.transform( data_arrays.peak_fluxes / 1000 )
 
         # Delta - summed clipped residuals, per image
@@ -30,12 +37,13 @@ def plot_flux_vs_residuals():
                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b',
                     s=0.01 )
 
-    plt.xlabel( 'Transformed Flux a.u.' )
-    plt.ylabel( 'Summed Positive Residuals mJy/image' )
+    plt.xlabel( 'Transformed flux, arbitrary units' )
+    plt.ylabel( 'Summed positive residuals mJy/image' )
     plt.yscale( 'log' )
-    plt.title( 'Transformed Flux vs Summed Positive Residuals' )
-    plt.show()
+    plt.title( 'Transformed flux vs summed positive residuals' )
+    plt.grid( True, 'both' )
     plt.savefig( 'scatter.png' )
+    plt.show()
     logger.info( 'Saved figure to scatter.png' )
 
 

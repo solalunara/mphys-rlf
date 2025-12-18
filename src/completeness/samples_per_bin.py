@@ -78,9 +78,6 @@ def get_completeness_estim():
         #samples_per_bin_average = np.average( total_counts[ bin_centers > 10 ] )
         #print( f'Average samples per bin >10mJy: {samples_per_bin_average}' )
 
-        detectable = model_fluxes > 0
-        detectable_model_fluxes = model_fluxes[ detectable ]
-
         # Bin and count
         samples_per_bin = np.empty( len( flux_bins ) - 1, dtype=float )
         detected_samples_per_bin = np.empty( len( flux_bins ) - 1, dtype=float )
@@ -88,9 +85,7 @@ def get_completeness_estim():
         for i in range(len(flux_bins) - 1):
             # Select sources in this flux bin
             total_in_bin, = np.where( np.logical_and( model_fluxes >= flux_bins[i], model_fluxes < flux_bins[i + 1] ) )
-            detected_in_bin, = np.where( np.logical_and( detectable_model_fluxes >= flux_bins[i], detectable_model_fluxes < flux_bins[i + 1] ) )
             #completeness[ i ] = detected_in_bin.shape[ 0 ] / samples_per_bin_average
-            detected_samples_per_bin[ i ] = detected_in_bin.shape[ 0 ]
             samples_per_bin[ i ] = total_in_bin.shape[ 0 ]
 
         # Handle confidence interval with poisson_conf_interval for total_counts = 0
@@ -102,17 +97,16 @@ def get_completeness_estim():
 
         #plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
-        plt.plot(bin_centers, samples_per_bin, marker='.', label = f'{subdir} total counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
-        plt.plot(bin_centers, detected_samples_per_bin, marker='_', label = f'{subdir} detected counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
+        plt.plot(bin_centers, samples_per_bin, marker='.', label = f'{subdir} counts', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
-        plt.xscale('log')
-        plt.xlabel("Integrated Flux Density (mJy)")
-        plt.ylabel("Samples per Bin")
-        plt.title("Sources per Integrated Flux Bin")
-        plt.grid(True)
-        plt.legend()
+    plt.xscale('log')
+    plt.xlabel("Integrated Flux Density (mJy)")
+    plt.ylabel("Samples per Bin")
+    plt.title("Sources per Integrated Flux Bin")
+    plt.grid(True)
+    plt.legend()
     plt.show()
-    plt.savefig( 'cplestim.png' )
+    plt.savefig( 'sources_per_bin.png' )
 
 
 if __name__ == "__main__":

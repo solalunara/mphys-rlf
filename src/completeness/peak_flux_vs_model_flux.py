@@ -22,4 +22,6 @@ if __name__ == "__main__":
     plt.yscale( 'log' )
     plt.xlabel( 'Peak Flux (mJy/pix)' )
     plt.ylabel( 'Integrated Flux (mJy)' )
+    plt.grid( True )
+    plt.savefig( 'peak_vs_model_flux.png' )
     plt.show()

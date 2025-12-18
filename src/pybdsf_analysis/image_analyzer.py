@@ -304,6 +304,7 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                 self.logger.info( f"Processing {path}:" )
 
                 #Something to do, process the image
+                failed_to_process = False
                 try:
                     img: bdsf.image.Image = bdsf.process_image(
                         str( path ),
@@ -312,18 +313,24 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
                     )
                 except ValueError:
                     self.logger.error( f'Image {str( path )} failed to process' )
-                    return
+                    failed_to_process = True
+                except RuntimeError:
+                    self.logger.error( f'Image {str( path )} had unphysical RMS, couldn\'t process')
+                    failed_to_process = True
+
                 for img_type in export_images:
                     image_outfile = self.img_dir / self.subdir / img_type / postfix
                     image_outfile_flag = self.img_dir / self.subdir / img_type / flag_postfix
                     image_outfile.parent.mkdir( parents=True, exist_ok=True )
-                    img.export_image( outfile=str( image_outfile ), **self.export_img_args[ img_type ] )
+                    if not failed_to_process:
+                        img.export_image( outfile=str( image_outfile ), **self.export_img_args[ img_type ] )
                     image_outfile_flag.touch()
                 if write_catalog:
                     catalog_outfile = self.catalog_dir / self.subdir / postfix
                     catalog_outfile_flag = self.catalog_dir / self.subdir / flag_postfix
                     catalog_outfile.parent.mkdir( parents=True, exist_ok=True )
-                    img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args )
+                    if not failed_to_process:
+                        img.write_catalog( outfile=str( catalog_outfile ), **self.catalog_args )
                     catalog_outfile_flag.touch()
             else:
                 self.logger.error( 'ERROR - Cannot analyze %s as fits file, is not fits file', str( path ) )
@@ -348,8 +355,8 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             Whether or not to overwrite the file if it already exists
         """
         # First, add some random noise to the image so pybdsf doesn't fail
-        z = np.random.normal( 0, scale=min( image.max(), 1 ) * 1e-2, size=image.shape )
-        image += z
+        #z = np.random.normal( 0, scale=min( image.max(), 1 ) * 1e-2, size=image.shape )
+        #image += z
 
 
         hdu = fits.PrimaryHDU( image )

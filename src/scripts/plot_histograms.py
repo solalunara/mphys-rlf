@@ -12,11 +12,12 @@ import pybdsf_analysis.log_analyzer as la
 import pybdsf_analysis.recursive_file_analyzer as rfa
 import numpy as np
 from completeness.img_data_arrays import ImageDataArrays
+import h5py
+from files.dataset import LOFAR_DATA_PATH
 
 def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
     resolution = 600
     BINCOUNT = 25
-    NORM = True
 
     fig = plt.figure( figsize=(int(resolution/100), int(resolution/100)) )
     gs = fig.add_gridspec( 2, 2,
@@ -29,26 +30,33 @@ def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
 
     axes = [ ax_flux, ax_mean, ax_rms, ax_pix ]
     titles = [ "Flux", "Mean", "RMS", "Pixel Values" ]
-    if NORM:
-        xlabels = [ "Integrated Flux (arbitrary units)", "Image Mean (0-1)", "Image RMS (0-1)", "Pixel Value (0-1)" ]
-        ranges = [ (0, 60), (0, 0.2), (0, 0.3), (0, 1) ]
-    else:
-        xlabels = [ "Integrated Flux (mJy)", "Image Mean (mJy/pix)", "Image RMS (mJy/pix)", "Pixel Value (mJy/pix)" ]
-        ranges = [ (0, 10000), (0, 300), (0, 300), (0, 1000) ]
+    xlabels = [ "Integrated Flux (arbitrary units)", "Image Mean (0-1)", "Image RMS (0-1)", "Pixel Value (0-1)" ]
+    ranges = [ (0, 60), (0, 0.2), (0, 0.3), (0, 1) ]
     ylabels = [ "Relative Frequency" ] * 4
 
     
 
     hist = HistogramErrorDrawer()
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
-        data_arrays = ImageDataArrays( subdir )
-        images = data_arrays.images
-        model_fluxes = data_arrays.model_fluxes
-        means = data_arrays.sigma_clipped_means
-        rmsds = data_arrays.sigma_clipped_rmsds
+        log_analyzer = LogAnalyzer( subdir )
+        normalized_model_fluxes = log_analyzer.for_each( la.get_model_flux, progress_bar_desc=f'{subdir} fluxes...' )
+        normalized_model_fluxes = np.array( normalized_model_fluxes )
 
-        div_factor = data_arrays.image_scale_factors if NORM else np.array( [ 1 ] )
-        axes_data = [ model_fluxes / div_factor, means / div_factor, rmsds / div_factor, ( images / div_factor[ :, np.newaxis, np.newaxis ] ).ravel() ]
+        data_path = utils.paths.NP_ARRAY_PARENT / subdir / 'histogram_data.npy'
+        if data_path.exists():
+            data = np.load( data_path )
+        else:
+            if subdir == utils.paths.GENERATED_SUBDIR:
+                rf = rfa.RecursiveFileAnalyzer( utils.paths.FITS_PARENT / subdir )
+                data = np.array( rf.for_each( rfa.get_fits_primaryhdu_data, progress_bar_desc=f'{subdir} data...' ) )
+            else:
+                with h5py.File( LOFAR_DATA_PATH, 'r' ) as h5:
+                    data = h5[ 'images' ]
+        means = np.mean( data, axis=(1,2) )
+        rmsds = np.std( data, axis=(1,2) )
+
+
+        axes_data = [ normalized_model_fluxes, means, rmsds, data.ravel() ]
         for ax, ax_data, range in zip( axes, axes_data, ranges ):
             hist.draw( ax_data,
                        ax=ax,

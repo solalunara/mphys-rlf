@@ -41,7 +41,7 @@ def plot_flux_vs_residuals():
     plt.ylabel( 'Summed positive residuals mJy/image' )
     plt.yscale( 'log' )
     plt.title( 'Transformed flux vs summed positive residuals' )
-    plt.grid( True, 'both' )
+    plt.grid( True )
     plt.savefig( 'scatter.png' )
     plt.show()
     logger.info( 'Saved figure to scatter.png' )

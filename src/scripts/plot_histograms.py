@@ -38,9 +38,14 @@ def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
 
     hist = HistogramErrorDrawer()
     for subdir in [ utils.paths.DATASET_SUBDIR, utils.paths.GENERATED_SUBDIR ]:
-        log_analyzer = LogAnalyzer( subdir )
-        normalized_model_fluxes = log_analyzer.for_each( la.get_model_flux, progress_bar_desc=f'{subdir} fluxes...' )
-        normalized_model_fluxes = np.array( normalized_model_fluxes )
+        fluxes_path = utils.paths.NP_ARRAY_PARENT / subdir / 'integrated_fluxes_normalized.npy'
+        if fluxes_path.exists():
+            normalized_model_fluxes = np.load( fluxes_path )
+        else:
+            log_analyzer = LogAnalyzer( subdir )
+            normalized_model_fluxes = log_analyzer.for_each( la.get_model_flux, progress_bar_desc=f'{subdir} fluxes...' )
+            normalized_model_fluxes = np.array( normalized_model_fluxes )
+            np.save( fluxes_path, normalized_model_fluxes )
 
         data_path = utils.paths.NP_ARRAY_PARENT / subdir / 'histogram_data.npy'
         if data_path.exists():
@@ -52,6 +57,7 @@ def plot_graphs_with_pybdsf_data( log_level: int = logging.INFO ):
             else:
                 with h5py.File( LOFAR_DATA_PATH, 'r' ) as h5:
                     data = h5[ 'images' ]
+            np.save( data_path, data )
         means = np.mean( data, axis=(1,2) )
         rmsds = np.std( data, axis=(1,2) )
 

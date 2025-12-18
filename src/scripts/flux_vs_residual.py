@@ -37,10 +37,10 @@ def plot_flux_vs_residuals():
                     color='g' if subdir == utils.paths.GENERATED_SUBDIR else 'b',
                     s=0.01 )
 
-    plt.xlabel( 'Transformed flux, arbitrary units' )
+    plt.xlabel( 'Transformed peak flux, arbitrary units' )
     plt.ylabel( 'Summed positive residuals mJy/image' )
     plt.yscale( 'log' )
-    plt.title( 'Transformed flux vs summed positive residuals' )
+    plt.title( 'Summed positive residuals vs transformed peak flux' )
     plt.grid( True )
     plt.savefig( 'scatter.png' )
     plt.show()

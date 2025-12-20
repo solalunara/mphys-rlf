@@ -24,6 +24,27 @@ rms_LOFAR = 71e-6 * 1e3
 beam_width_LOFAR = ImageAnalyzer.LOFAR_process_arg_defaults[ 'process_beam' ][ :-1 ]
 beam_area_LOFAR = beam_width_LOFAR[ 0 ] * beam_width_LOFAR[ 1 ]
 
+shimwell_data = np.array( [
+    [ 0.25,   0.03,   0.03 ],
+    [ 0.30,   0.06,   0.04 ],
+    [ 0.35,   0.09,   0.05 ],
+    [ 0.40,   0.13,   0.06 ],
+    [ 0.45,   0.16,   0.07 ],
+    [ 0.50,   0.20,   0.08 ],
+    [ 0.55,   0.22,   0.08 ],
+    [ 0.60,   0.25,   0.09 ],
+    [ 0.65,   0.27,   0.09 ],
+    [ 0.70,   0.29,   0.10 ],
+    [ 0.75,   0.30,   0.10 ],
+    [ 0.80,   0.31,   0.10 ],
+    [ 0.85,   0.32,   0.10 ],
+    [ 0.90,   0.33,   0.10 ],
+    [ 0.95,   0.34,   0.10 ],
+    [ 1.00,   0.35,   0.10 ],
+    [ 1.05,   0.35,   0.10 ],
+    [ 1.10,   0.36,   0.10 ],
+] ).transpose()
+
 def get_noise(data):
     """
     from Cyril Tasse/kMS, courtesy of Wara
@@ -128,16 +149,21 @@ def get_completeness_estim():
         # Plot completeness curve
 
         plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
-
         plt.plot(bin_centers, completeness, marker='.', label = f'{subdir} completeness', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
-        plt.xscale('log')
-        plt.ylim(0, 1.1)
-        plt.xlabel("Flux Density (mJy)")
-        plt.ylabel("Completeness")
-        plt.title("Flux Density Completeness Curve")
-        plt.grid(True)
-        plt.legend()
+    # Plot Shimwell data
+    plt.errorbar( shimwell_data[ 0 ], shimwell_data[ 1 ], shimwell_data[ 2 ] / 2, color='r', label='Shimwell Data' )
+
+
+
+
+    plt.xscale('log')
+    plt.ylim(0, 1.1)
+    plt.xlabel("Flux Density (mJy)")
+    plt.ylabel("Completeness")
+    plt.title("Flux Density Completeness Curve")
+    plt.grid(True)
+    plt.legend()
     plt.show()
     plt.savefig( 'cplestim.png' )
 

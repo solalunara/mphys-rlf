@@ -355,8 +355,10 @@ class ImageAnalyzer( RecursiveFileAnalyzer ):
             Whether or not to overwrite the file if it already exists
         """
         # First, add some random noise to the image so pybdsf doesn't fail
-        #z = np.random.normal( 0, scale=min( image.max(), 1 ) * 1e-2, size=image.shape )
-        #image += z
+        # HACK - only add noise in the case of the dataset, generated converges fine
+        if self.subdir == utils.paths.DATASET_SUBDIR:
+            z = np.random.normal( 0, scale=min( image.max(), 1 ), size=image.shape )
+            image += z
 
 
         hdu = fits.PrimaryHDU( image )

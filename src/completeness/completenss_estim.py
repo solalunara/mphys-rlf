@@ -38,6 +38,23 @@ shimwell_data = np.array( [
     [ 1.2,   0.96 ]
 ] ).transpose()
 
+dejong_data = np.array( [
+    [ 1, 0.025 ],
+    [ 2, 0.1 ],
+    [ 3, 0.15 ],
+    [ 4, 0.2 ],
+    [ 7, 0.3 ]
+    [ 10, 0.35 ],
+    [ 20, 0.4 ],
+    [ 30, 0.425 ],
+    [ 40, 0.45 ],
+    [ 100, 0.475 ],
+    [ 300, 0.6 ],
+    [ 1000, 0.7 ],
+    [ 10000, 0.8 ]
+    [ 20000, 0.8 ] 
+])
+
 def get_noise(data):
     """
     from Cyril Tasse/kMS, courtesy of Wara
@@ -146,6 +163,7 @@ def get_completeness_estim():
 
     # Plot Shimwell data
     plt.plot( shimwell_data[ 0 ], shimwell_data[ 1 ], color='r', label='shimwell et al. 2022 data (approximate)' )
+    plt.plot( dejong_data[ 0 ], dejong_data[ 1 ], color='o', label='de jong et al. 2023 data (approximate)' )
 
 
 

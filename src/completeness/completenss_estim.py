@@ -43,7 +43,7 @@ dejong_data = np.array( [
     [ 2, 0.1 ],
     [ 3, 0.15 ],
     [ 4, 0.2 ],
-    [ 7, 0.3 ]
+    [ 7, 0.3 ],
     [ 10, 0.35 ],
     [ 20, 0.4 ],
     [ 30, 0.425 ],
@@ -51,9 +51,32 @@ dejong_data = np.array( [
     [ 100, 0.475 ],
     [ 300, 0.6 ],
     [ 1000, 0.7 ],
-    [ 10000, 0.8 ]
+    [ 10000, 0.8 ],
     [ 20000, 0.8 ] 
-])
+]).transpose()
+
+kondapally_data = np.array( [
+    [ 0.09,	0.143,	0  ,	0 ],
+    [ 0.11,	0.221,	0  ,	0 ],
+    [ 0.13,	0.351,	0.193,	0 ],
+    [ 0.16,	0.553,	0.319,	0 ],
+    [ 0.19,	0.68,	0.43,	0.211 ],
+    [ 0.23,	0.742,	0.57,	0.322 ],
+    [ 0.28,	0.778,	0.664,	0.486 ],
+    [ 0.33,	0.802,	0.751,	0.624 ],
+    [ 0.40,	0.813,	0.779,	0.717 ],
+    [ 0.63,	0.849,	0.841,	0.816 ],
+    [ 1.01,	0.884,	0.872,	0.871 ],
+    [ 1.59,	0.921,	0.907,	0.912 ],
+    [ 2.52,	0.951,	0.941,	0.952 ],
+    [ 4.00,	0.961,	0.959,	0.971 ],
+    [ 6.34,	0.973,	0.967,	0.982 ],
+    [ 10.05,0.975,	0.974,	0.981 ],
+    [ 15.92,0.978,	0.973,	0.98 ],
+    [ 25.24,0.984,	0.978,	0.989 ],
+    [ 40.0,	0.987,	0.978,	0.985 ],
+]).transpose()
+
 
 def get_noise(data):
     """
@@ -161,21 +184,26 @@ def get_completeness_estim():
         plt.errorbar( bin_centers, completeness, yerr, fmt='.', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
         plt.plot(bin_centers, completeness, marker='.', label = f'{subdir} completeness', color='b' if subdir is utils.paths.DATASET_SUBDIR else 'g' )
 
-    # Plot Shimwell data
-    plt.plot( shimwell_data[ 0 ], shimwell_data[ 1 ], color='r', label='shimwell et al. 2022 data (approximate)' )
-    plt.plot( dejong_data[ 0 ], dejong_data[ 1 ], color='o', label='de jong et al. 2023 data (approximate)' )
+    # Plot data from other papers
+    plt.plot( shimwell_data[ 0 ], shimwell_data[ 1 ], marker='p', color='r', label='shimwell et al. 2022 data (approximate)' )
+    plt.plot( dejong_data[ 0 ], dejong_data[ 1 ], marker='s', color='m', label='de jong et al. 2023 data (approximate)' )
+
+    kondapally_markers = [ '<', '>', '^' ]
+    kondapally_fields = [ 'ELAIS-N1',	'Lockman Hole',	'Boötes' ]
+    for i, marker, field in zip( range( 1, kondapally_data.shape[ 0 ] ), kondapally_markers, kondapally_fields ):
+        plt.plot( kondapally_data[ 0 ][ kondapally_data[ i ] > 0 ], kondapally_data[ i ][ kondapally_data[ i ] > 0 ], color='k', marker=marker, label=f'kondapally et al. 2022 - {field}' )
 
 
 
 
     plt.xscale('log')
     plt.ylim(0, 1.1)
-    plt.xlim( left=0.5 )
+    plt.xlim( left=0.5, right=100 )
     plt.xlabel("Flux Density (mJy)")
     plt.ylabel("Completeness")
     plt.title("Flux Density Completeness Curve")
     plt.grid(True)
-    plt.legend()
+    plt.legend( loc='lower right' )
     plt.show()
     plt.savefig( 'cplestim.png' )
 

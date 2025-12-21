@@ -20,7 +20,7 @@ from files.dataset import LOFAR_DATA_PATH
 from sklearn.preprocessing import PowerTransformer
 from completeness.img_data_arrays import ImageDataArrays
 
-rms_LOFAR = 71e-6 * 1e3
+rms_LOFAR = 95e-6 * 1e3
 beam_width_LOFAR = ImageAnalyzer.LOFAR_process_arg_defaults[ 'process_beam' ][ :-1 ]
 beam_area_LOFAR = beam_width_LOFAR[ 0 ] * beam_width_LOFAR[ 1 ]
 
@@ -209,7 +209,7 @@ def get_completeness_estim():
 
 
 if __name__ == "__main__":
-    #pybdsf_analysis.pybdsf_run_analysis.analyze_everything()
+    pybdsf_analysis.pybdsf_run_analysis.analyze_everything()
 
     du = DistributedUtils()
     du.single_task_only_last( 'get_completeness_estim', get_completeness_estim, 0 )

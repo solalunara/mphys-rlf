@@ -29,5 +29,6 @@ if __name__ == "__main__":
     plt.grid( True )
     plt.xticks( xticks )
     plt.yticks( yticks )
+    plt.legend( markerscale=100 )
     plt.savefig( 'peak_vs_model_flux.png' )
     plt.show()

@@ -44,6 +44,7 @@ def plot_flux_vs_residuals():
     plt.grid( True )
     plt.savefig( 'scatter.png' )
     plt.show()
+    plt.legend( markerscale=100 )
     logger.info( 'Saved figure to scatter.png' )
 
 

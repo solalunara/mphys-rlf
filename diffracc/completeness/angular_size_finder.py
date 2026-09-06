@@ -32,7 +32,7 @@ from ..utils.logger import LoggingLevels, get_logger
 from ..utils.recursive_file_analyzer import RecursiveFileAnalyzer
 
 
-class MakeShape():
+class MakeShape:
     """
     A radio source's shape, built from its component list. It samples the component ellipse boundaries, taking their
     convex hull, and measuring the hull's diameter (the angular-size estimate). An instance keeps the intermediate
@@ -529,7 +529,6 @@ class AngularSizeFinder:
         """
         if components is None:
             return float("nan")
-
         comp = np.asarray(components, dtype=float)
 
         # A single surviving component: return twice the (unbuffered) major axis directly. This is a pipeline
@@ -633,11 +632,13 @@ class AngularSizeFinder:
         fits_indices : np.ndarray
             The source indices corresponding to `components_list`.
         """
-        if components_cache is not None and os.path.exists(components_cache):
-            self.logger.info(f"Loading consolidated components from {components_cache}")
-            with open(components_cache, "rb") as f:
-                cached = pickle.load(f)
-            return cached["components"], cached["indices"]
+        if components_cache is not None: 
+            if os.path.exists(components_cache):
+                self.logger.info(f"Loading consolidated components from {components_cache}")
+                with open(components_cache, "rb") as f:
+                    cached = pickle.load(f)
+                return cached["components"], cached["indices"]
+            self.logger.info(f"No consolidated components found at {components_cache}; extracting from FITS files")
 
         components_list, fits_indices = self._extract_components(fits_dir, pattern)
 
@@ -654,6 +655,7 @@ class AngularSizeFinder:
                                fits_dir: str | Path | None = None,
                                pattern: str = r'.*?\D+(\d+)\.fits$',
                                output_file: str | Path | None = None,
+                               read_from_file: bool = False,
                                components_cache: str | Path | None = None) -> tuple[np.ndarray, np.ndarray]:
         """
         A method to estimate the angular sizes of sources from the FITS files in the root directory, and optionally save
@@ -667,6 +669,10 @@ class AngularSizeFinder:
             The regex pattern to match FITS files, by default r'.*?\D+(\d+)\.fits$'.
         output_file : str | Path | None, optional
             The name of the CSV file to save the estimated angular sizes to, by default `None`.
+        read_from_file : bool, optional
+            If `True`, the method will attempt to read the estimated angular sizes from the output file, if it exists.
+            If `False`, the method will always re-calculate the angular sizes and save them to the output file. By
+            default `False`.
         components_cache : str | Path | None, optional
             Path to a consolidated components file, by default `None`. When given, the extracted components are cached
             to (and reloaded from) this file, so re-runs skip the expensive re-parse of every catalogue FITS. See
@@ -679,19 +685,25 @@ class AngularSizeFinder:
         sizes : np.ndarray
             An array of estimated angular sizes for the sources, in arcseconds.
         """
+        assert (read_from_file and output_file is not None) or not read_from_file, (
+            "Cannot read from file if no output file is specified.")
         # If the output file already exists, read the sizes from the file and return them along with the corresponding
         # indices
-        if output_file is not None and os.path.exists(output_file):
-            try:
-                self.logger.info(f"Reading estimated angular sizes from {output_file}")
-                ang_sizes = np.genfromtxt(output_file, delimiter=',', skip_header=1)
-            except Exception as e:
-                raise Exception(f"Failed to read {output_file}. Please check the file and try again: {e}") from e
+        if read_from_file:
+            if not os.path.exists(output_file):
+                self.logger.error(f"Output file {output_file} does not exist. Cannot read estimated angular sizes from "
+                                  "it. Recalculating sizes instead.")
+            else:
+                try:
+                    self.logger.info(f"Reading estimated angular sizes from {output_file}")
+                    ang_sizes = np.genfromtxt(output_file, delimiter=',', skip_header=1)
+                except Exception as e:
+                    raise Exception(f"Failed to read {output_file}. Please check the file and try again: {e}") from e
 
-            fits_indices = self.rfa.get_unwrapped_list(path=fits_dir,
-                                                       pattern=pattern,
-                                                       return_nums=True).numbers
-            return fits_indices, ang_sizes
+                fits_indices = self.rfa.get_unwrapped_list(path=fits_dir,
+                                                        pattern=pattern,
+                                                        return_nums=True).numbers
+                return fits_indices, ang_sizes
 
         # Extract (or reload consolidated) component data for each FITS file
         components_list, fits_indices = self._load_or_extract_components(fits_dir, pattern, components_cache)
@@ -701,9 +713,13 @@ class AngularSizeFinder:
 
         # Save the estimated angular sizes to a CSV file if an output file name is provided
         if output_file:
-            self.logger.info(f"Saving estimated angular sizes to {output_file}")
-            df = pd.DataFrame(ang_sizes, columns=['Estimated Angular Size (arcseconds)'])
-            df.to_csv(output_file, index=False)
+            self.logger.info(f"Saving estimated angular sizes and indices to {output_file}")
+            # Create a DataFrame with the estimated angular sizes and FITS indices
+            df = pd.DataFrame({
+                "fits_index": fits_indices,
+                "estimated_las_arcsec": ang_sizes,
+            })
+            df.to_csv(output_file, index=False, mode="w")
 
         return fits_indices, np.array(ang_sizes)
 
@@ -728,6 +744,9 @@ def build_arg_parser():
                         help="Fraction of total flux to keep when filtering components. Default is 0.95.")
     parser.add_argument("--pattern", type=str, default=r'.*?\D+(\d+)\.fits$',
                         help="Regex pattern to match FITS files. Default is r'.*?\D+(\d+)\.fits$'.")
+    parser.add_argument("--read-from-file", action="store_true",
+                        help="If set, the script will attempt to read the estimated angular sizes from the output file "
+                             "if it exists, instead of recalculating them. Default is False.")
     parser.add_argument("--outlier-threshold", type=float, default=200.0,
                         help="Threshold for identifying outliers in estimated angular sizes (in arcseconds). "
                              "Sources with estimated sizes above this threshold will be removed from the analysis. "
@@ -739,15 +758,15 @@ def build_arg_parser():
                         help="Number of worker processes for the extraction and size-estimation steps. Set to 1 for "
                         "serial/threaded execution. Default is 8.")
     parser.add_argument("--components-cache", type=str, default=None,
-                        help="Optional path to a consolidated components file. When given, extracted components are "
-                        "cached to (and reloaded from) it, so re-runs skip re-parsing every catalogue FITS. "
+                        help="Optional path to a consolidated components file (.pkl). When given, extracted components "
+                        "are cached to (and reloaded from) it, so re-runs skip re-parsing every catalogue FITS. "
                         "Default is None (no consolidation).")
 
     return parser
 
 
 if __name__ == "__main__":
-    _default_root = paths.STORAGE_PARENT / "diffracc/completeness/dr2_cutouts_download_catalogs"
+    _default_root = paths.PYBDSF_CATALOG_PARENT / "dr2_cutouts_download"
 
     parser = build_arg_parser()
     args = parser.parse_args()
@@ -758,7 +777,9 @@ if __name__ == "__main__":
                             flux_threshold=args.flux_threshold,
                             n_points=args.num_points,
                             num_processes=args.num_processes)
-    indices, sizes = asf.estimate_angular_sizes(output_file=args.output_file, components_cache=args.components_cache)
+    indices, sizes = asf.estimate_angular_sizes(output_file=args.output_file,
+                                                components_cache=args.components_cache,
+                                                read_from_file=args.read_from_file)
 
     # Check for estimated angular sizes that are above the outlier threshold - "outliers"
     outliers = np.where(sizes > args.outlier_threshold)[0]

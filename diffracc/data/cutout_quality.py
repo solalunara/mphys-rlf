@@ -549,8 +549,8 @@ def compute_from_catalogues(source_catalogue_path=paths.STRIPPED_CATALOGUE_PATH,
     flags.insert(1, "source_name", _as_str_array(source_name))
     flags.insert(2, "ra", source_ra)
     flags.insert(3, "dec", source_dec)
-    flags.insert(4, "peak_flux", peak_flux_mjy)
-    flags.insert(5, "isl_rms", isl_rms_mjy)
+    flags.insert(4, "peak_flux_mjy", peak_flux_mjy)
+    flags.insert(5, "isl_rms_mjy", isl_rms_mjy)
     return flags
 
 

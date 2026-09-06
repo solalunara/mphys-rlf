@@ -201,12 +201,11 @@ class TestEstimateAngularSizesCache:
         """Test that estimate_angular_sizes reads from an existing output file instead of running the FITS pipeline."""
         fits_dir = tmp_path / "cats"
         fits_dir.mkdir()
-        # Only the filenames matter for the cache-read branch - it never opens these files.
-        (fits_dir / "source_1.fits").write_bytes(b"")
-        (fits_dir / "source_2.fits").write_bytes(b"")
 
+        # The read-from-file branch takes both the indices and the sizes straight from the CSV columns, never touching
+        # fits_dir.
         output_file = tmp_path / "sizes.csv"
-        output_file.write_text("Estimated Angular Size (arcseconds)\n12.5\n30.0\n")
+        output_file.write_text("fits_index,estimated_las_arcsec\n1,12.5\n2,30.0\n")
 
         finder = AngularSizeFinder(root_dir=fits_dir)
         indices, sizes = finder.estimate_angular_sizes(fits_dir=fits_dir, output_file=output_file, read_from_file=True)
@@ -252,7 +251,10 @@ class TestEstimateAngularSizesFullPipeline:
         output_file = tmp_path / "sizes.csv"
         finder = AngularSizeFinder(root_dir=fits_dir)
 
-        indices, sizes = finder.estimate_angular_sizes(fits_dir=fits_dir, output_file=output_file)
+        # load_from_catalogue=False keeps the pipeline on the FITS-extraction path (these tmp files), rather than the
+        # real DR2 component catalogue.
+        indices, sizes = finder.estimate_angular_sizes(fits_dir=fits_dir, output_file=output_file,
+                                                       load_from_catalogue=False)
 
         assert set(indices) == {1, 2}
         by_index = dict(zip(indices, sizes))

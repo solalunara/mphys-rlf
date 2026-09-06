@@ -674,7 +674,8 @@ class AngularSizeFinder:
     def _load_or_extract_components(self,
                                     fits_dir: str | Path | None,
                                     pattern: str,
-                                    components_cache: str | Path | None) -> tuple[np.ndarray, np.ndarray]:
+                                    components_cache: str | Path | None,
+                                    load_from_catalogue: bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
         Return the per-source components and indices, using a one-time consolidated cache when available.
 
@@ -693,6 +694,9 @@ class AngularSizeFinder:
         components_cache : str | Path | None
             Path to the consolidated components file. If it exists, it is loaded instead of re-parsing; if it does not
             exist, the freshly extracted components are written to it. If `None`, no consolidation is done.
+        load_from_catalogue : bool
+            If `True`, assemble components from the DR2 component catalogue by matching source names; otherwise extract
+            them from the PyBDSF catalogue FITS files under `fits_dir`. By default `False`.
 
         Returns
         -------
@@ -709,7 +713,6 @@ class AngularSizeFinder:
                 return cached["components"], cached["indices"]
             self.logger.info(f"No consolidated components found at {components_cache}; extracting from FITS files")
 
-        load_from_catalogue = True
         if load_from_catalogue:
             self.logger.info("Loading components from the DR2 catalogue")
             fits_indices = self.rfa.get_unwrapped_list(path=fits_dir,
@@ -786,7 +789,8 @@ class AngularSizeFinder:
                 return fits_indices, ang_sizes
 
         # Extract (or reload consolidated) component data for each FITS file
-        components_list, fits_indices = self._load_or_extract_components(fits_dir, pattern, components_cache)
+        components_list, fits_indices = self._load_or_extract_components(fits_dir, pattern, components_cache,
+                                                                         load_from_catalogue=load_from_catalogue)
 
         # Estimate the angular size of each image based on the component data
         ang_sizes = self._estimate_sizes(components_list)
@@ -871,8 +875,8 @@ if __name__ == "__main__":
     # Check for estimated angular sizes that are above the outlier threshold - "outliers"
     if not args.no_plot:
         outliers = np.where(sizes > args.outlier_threshold)[0]
-        asf.logger.warning(f"Found {len(outliers)} outliers with estimated angular sizes above {args.outlier_threshold} "
-                                    f"arcseconds. These will be removed from the analysis.")
+        asf.logger.warning(f"Found {len(outliers)} outliers with estimated angular sizes above {args.outlier_threshold}"
+                                    f" arcseconds. These will be removed from the analysis.")
         indices = np.delete(indices, outliers)
         sizes = np.delete(sizes, outliers)
 

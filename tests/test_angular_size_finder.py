@@ -209,7 +209,7 @@ class TestEstimateAngularSizesCache:
         output_file.write_text("Estimated Angular Size (arcseconds)\n12.5\n30.0\n")
 
         finder = AngularSizeFinder(root_dir=fits_dir)
-        indices, sizes = finder.estimate_angular_sizes(fits_dir=fits_dir, output_file=output_file)
+        indices, sizes = finder.estimate_angular_sizes(fits_dir=fits_dir, output_file=output_file, read_from_file=True)
 
         np.testing.assert_allclose(sorted(sizes), [12.5, 30.0])
         assert set(indices) == {1, 2}

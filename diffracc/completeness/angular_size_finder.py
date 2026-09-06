@@ -29,6 +29,7 @@ from tqdm import tqdm
 
 from ..utils import paths
 from ..utils.logger import LoggingLevels, get_logger
+from ..utils.plotting import paper_style
 from ..utils.recursive_file_analyzer import RecursiveFileAnalyzer
 
 
@@ -602,6 +603,74 @@ class AngularSizeFinder:
         )
 
 
+    def _load_components_from_catalogue(self,
+                                        fits_indices: np.ndarray,
+                                        source_catalogue_path: str | Path = paths.STRIPPED_CATALOGUE_PATH,
+                                        component_catalogue_path: str | Path = paths.COMPONENT_CATALOGUE_PATH
+                                        ) -> np.ndarray:
+        """
+        Load the per-source components and indices from a pre-existing catalogue, bypassing the extraction step.
+        
+        Parameters
+        ----------
+        fits_indices : np.ndarray
+            The source indices corresponding to the components in the catalogue.
+        source_catalogue_path : str | Path
+            Path to the source catalogue FITS file containing the DR2 catalogue information.
+        component_catalogue_path : str | Path
+            Path to the component catalogue FITS file containing the DR2 components.
+        
+        Returns
+        -------
+        components_list : np.ndarray
+            The per-source filtered component lists.
+        """
+        # Get the Source_Name of each source from the source catalogue
+        self.logger.info(f"Loading source names from {source_catalogue_path}")
+        with fits.open(source_catalogue_path, memmap=False) as hdul:
+            source_data = hdul[1].data
+            source_names = source_data['Source_Name'][fits_indices]
+
+        # Assemble the components for each source from the component catalogue, by matching Source_Name.
+        self.logger.info(f"Loading components from {component_catalogue_path}")
+        with fits.open(component_catalogue_path, memmap=False) as hdul:
+            component_data = hdul[1].data
+
+            # Pull the six columns we need once, as a single contiguous (n_components, 6) float array. The downstream
+            # geometry (MakeShape) was written for PyBDSF cutout catalogues, whose DC_Maj/DC_Min are in DEGREES (it
+            # multiplies them by 3600). This value-added component catalogue instead stores its axes in ARCSEC (and
+            # carries no TUNIT to flag it), so convert them to degrees here to keep that convention.
+            component_values = np.column_stack([
+                np.asarray(component_data['Total_flux'], dtype=float),
+                np.asarray(component_data['RA'], dtype=float),
+                np.asarray(component_data['DEC'], dtype=float),
+                np.asarray(component_data['DC_Maj'], dtype=float) / 3600.0,
+                np.asarray(component_data['DC_Min'], dtype=float) / 3600.0,
+                np.asarray(component_data['PA'], dtype=float),
+            ])
+            parent_source = np.asarray(component_data['Parent_Source'])
+
+        # Group every component's row position by its Parent_Source in a single pass, as dicts (O(1) lookup).
+        rows_by_source = pd.Series(np.arange(len(parent_source))).groupby(parent_source).indices
+
+        empty = np.empty((0, 6), dtype=float)
+        components_list = np.empty(len(source_names), dtype=object)
+        missing = 0
+        for i, source_name in tqdm(enumerate(source_names), desc="Matching components to sources..."):
+            positions = rows_by_source.get(source_name)
+            if positions is None:
+                components_list[i] = empty
+                missing += 1
+            else:
+                components_list[i] = component_values[positions]
+
+        if missing:
+            self.logger.warning(
+                f"{missing} of {len(source_names)} sources had no components in the component catalogue.")
+
+        return components_list
+
+
     def _load_or_extract_components(self,
                                     fits_dir: str | Path | None,
                                     pattern: str,
@@ -632,7 +701,7 @@ class AngularSizeFinder:
         fits_indices : np.ndarray
             The source indices corresponding to `components_list`.
         """
-        if components_cache is not None: 
+        if components_cache is not None:
             if os.path.exists(components_cache):
                 self.logger.info(f"Loading consolidated components from {components_cache}")
                 with open(components_cache, "rb") as f:
@@ -640,7 +709,15 @@ class AngularSizeFinder:
                 return cached["components"], cached["indices"]
             self.logger.info(f"No consolidated components found at {components_cache}; extracting from FITS files")
 
-        components_list, fits_indices = self._extract_components(fits_dir, pattern)
+        load_from_catalogue = True
+        if load_from_catalogue:
+            self.logger.info("Loading components from the DR2 catalogue")
+            fits_indices = self.rfa.get_unwrapped_list(path=fits_dir,
+                                                       pattern=pattern,
+                                                       return_nums=True).numbers
+            components_list = self._load_components_from_catalogue(fits_indices)
+        else:
+            components_list, fits_indices = self._extract_components(fits_dir, pattern)
 
         if components_cache is not None:
             self.logger.info(f"Consolidating extracted components to {components_cache}")
@@ -656,6 +733,7 @@ class AngularSizeFinder:
                                pattern: str = r'.*?\D+(\d+)\.fits$',
                                output_file: str | Path | None = None,
                                read_from_file: bool = False,
+                               load_from_catalogue: bool = False,
                                components_cache: str | Path | None = None) -> tuple[np.ndarray, np.ndarray]:
         """
         A method to estimate the angular sizes of sources from the FITS files in the root directory, and optionally save
@@ -673,6 +751,9 @@ class AngularSizeFinder:
             If `True`, the method will attempt to read the estimated angular sizes from the output file, if it exists.
             If `False`, the method will always re-calculate the angular sizes and save them to the output file. By
             default `False`.
+        load_from_catalogue : bool, optional
+            If `True`, the method will load components from the DR2 catalogue instead of extracting them from FITS
+            files or a cached file. If `False`, the method will extract components as usual. By default `False`.
         components_cache : str | Path | None, optional
             Path to a consolidated components file, by default `None`. When given, the extracted components are cached
             to (and reloaded from) this file, so re-runs skip the expensive re-parse of every catalogue FITS. See
@@ -696,13 +777,12 @@ class AngularSizeFinder:
             else:
                 try:
                     self.logger.info(f"Reading estimated angular sizes from {output_file}")
-                    ang_sizes = np.genfromtxt(output_file, delimiter=',', skip_header=1)
+                    fits_indices, ang_sizes = np.loadtxt(output_file, delimiter=',', skiprows=1, unpack=True)
+                    fits_indices = fits_indices.astype(int)
+                    ang_sizes = ang_sizes.astype(float)
                 except Exception as e:
                     raise Exception(f"Failed to read {output_file}. Please check the file and try again: {e}") from e
 
-                fits_indices = self.rfa.get_unwrapped_list(path=fits_dir,
-                                                        pattern=pattern,
-                                                        return_nums=True).numbers
                 return fits_indices, ang_sizes
 
         # Extract (or reload consolidated) component data for each FITS file
@@ -761,6 +841,12 @@ def build_arg_parser():
                         help="Optional path to a consolidated components file (.pkl). When given, extracted components "
                         "are cached to (and reloaded from) it, so re-runs skip re-parsing every catalogue FITS. "
                         "Default is None (no consolidation).")
+    parser.add_argument("--load-from-catalogue", action="store_true",
+                        help="If set, the script will load components from the DR2 catalogue instead of extracting "
+                        "them from FITS files. Default is False.")
+    parser.add_argument("--no-plot", action="store_true",
+                        help="If set, the script will not generate plots of the estimated angular sizes and their "
+                        "differences from the DR2 LAS values. Default is False (plots will be generated).")
 
     return parser
 
@@ -779,25 +865,55 @@ if __name__ == "__main__":
                             num_processes=args.num_processes)
     indices, sizes = asf.estimate_angular_sizes(output_file=args.output_file,
                                                 components_cache=args.components_cache,
+                                                load_from_catalogue=args.load_from_catalogue,
                                                 read_from_file=args.read_from_file)
 
     # Check for estimated angular sizes that are above the outlier threshold - "outliers"
-    outliers = np.where(sizes > args.outlier_threshold)[0]
-    asf.logger.warning(f"Found {len(outliers)} outliers with estimated angular sizes above {args.outlier_threshold} "
-                                   f"arcseconds. These will be removed from the analysis.")
-    indices = np.delete(indices, outliers)
-    sizes = np.delete(sizes, outliers)
+    if not args.no_plot:
+        outliers = np.where(sizes > args.outlier_threshold)[0]
+        asf.logger.warning(f"Found {len(outliers)} outliers with estimated angular sizes above {args.outlier_threshold} "
+                                    f"arcseconds. These will be removed from the analysis.")
+        indices = np.delete(indices, outliers)
+        sizes = np.delete(sizes, outliers)
 
-    for i in range(0, round(max(sizes)), 5):
-        print(f"Size bin: {i} - {i+5} arcseconds")
-        print(f"Number of sources in this size bin: {len(sizes[(sizes >= i) & (sizes < i+5)])}")
+        for i in range(0, round(max(sizes)), 5):
+            print(f"Size bin: {i} - {i+5} arcseconds")
+            print(f"Number of sources in this size bin: {len(sizes[(sizes >= i) & (sizes < i+5)])}")
 
-    # Plot a histogram of the estimated angular sizes
-    plt.figure(figsize=(10, 6))
-    plt.hist(sizes, bins=50, color='skyblue', edgecolor='black')
-    plt.title('Distribution of Estimated Angular Sizes of Radio Sources')
-    plt.xlabel('Estimated Angular Size (arcseconds)')
-    plt.ylabel('Number of Sources')
-    plt.grid(axis='y', alpha=0.75)
-    plt.savefig(args.output_file.replace('.csv', '_distribution.png'))
-    plt.show()
+        # Plot a histogram of the estimated angular sizes
+        with paper_style():
+            plt.figure(figsize=(10, 6))
+            plt.hist(sizes, bins=50, color='skyblue', edgecolor='black')
+            plt.title('Distribution of Estimated Angular Sizes of Radio Sources')
+            plt.xlabel('Estimated Angular Size (arcseconds)')
+            plt.ylabel('Number of Sources')
+            plt.grid(axis='y', alpha=0.75)
+            plt.savefig(args.output_file.replace('.csv', '_distribution.png'))
+            plt.show()
+
+        if root == _default_root or args.load_from_catalogue:
+            # On a separate figure, plot a histogram of the differences between these sizes and the LAS values in the
+            # DR2 catalogue, for sources that have a LAS value.
+            with paper_style():
+                plt.figure(figsize=(10, 6))
+                # Load the DR2 catalogue to get the LAS values
+                with fits.open(paths.STRIPPED_CATALOGUE_PATH, memmap=False) as hdul:
+                    dr2_data = hdul[1].data
+                    las_values = dr2_data['LAS'][indices]  # Get LAS values for the sources we have sizes for
+
+                # Calculate the differences between estimated sizes and LAS values, ignoring NaNs
+                valid_indices = ~np.isnan(las_values)
+                size_differences = sizes[valid_indices] - las_values[valid_indices]
+                # filter to keep only 95% of absolute differences to avoid extreme outliers in the histogram
+                lower_bound = np.percentile(size_differences, 2.5)
+                upper_bound = np.percentile(size_differences, 97.5)
+                size_differences = size_differences[(size_differences >= lower_bound) \
+                                                    & (size_differences <= upper_bound)]
+
+                plt.hist(size_differences, bins=100, color='lightcoral', edgecolor='black')
+                plt.title('Differences Between Estimated Angular Sizes and DR2 LAS Values')
+                plt.xlabel('Estimated Size - DR2 LAS (arcseconds)')
+                plt.ylabel('Number of Sources')
+                plt.grid(axis='y', alpha=0.75)
+                plt.savefig(args.output_file.replace('.csv', '_size_difference_distribution.png'))
+                plt.show()
